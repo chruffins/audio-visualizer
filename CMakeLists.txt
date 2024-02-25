@@ -9,7 +9,7 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(${PROJECT_NAME} main.c)
 
-target_compile_options(audiovis PRIVATE -g -Wall)
+target_compile_options(audiovis PRIVATE -O3 -Wall)
 #target_compile_options(chrus_engine -g)
 
 # set some compiler flags
