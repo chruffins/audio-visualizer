@@ -109,6 +109,25 @@ void draw_frequency_bins() {
     }
 }
 
+void draw_spinning_oscilloscope() {
+    static float angle = 0;
+    static float hue = 0;
+
+    for (int i = 0; i < 900; i++) {
+        float x = (i-450);
+        float y = (sample_buffer[i] * 100);
+
+        vertices[i] = (ALLEGRO_VERTEX){ .x = (x * cosf(angle) - y * sinf(angle)) + (width / 4), .y = (x * sinf(angle) + y * cosf(angle)) + (height / 2), .color = hsv_to_color(hue, 1, 1) };
+        vertices[i + 900] = (ALLEGRO_VERTEX){ .x = (x * cosf(angle) - y * sinf(angle)) + (3 * width / 4), .y = (x * sinf(angle) + y * cosf(angle)) + (height / 2), .color = hsv_to_color(hue, 1, 1) };
+    }
+
+    al_draw_prim(vertices, NULL, NULL, 0, 900, ALLEGRO_PRIM_POINT_LIST);
+    al_draw_prim(vertices, NULL, NULL, 900, 1800, ALLEGRO_PRIM_POINT_LIST);
+    angle += 0.02;
+    hue += 0.001;
+    
+}
+
 void draw_oscilloscope() {
     const ALLEGRO_COLOR green = al_map_rgb(0, 255, 0);
     for (int i = 0; i < width; i++) {
@@ -172,7 +191,7 @@ void run_main_loop() {
             break;
         case ALLEGRO_EVENT_KEY_DOWN:
             if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
-                mode = (mode + 1) % 3;
+                mode = (mode + 1) % 4;
                 printf("mode changed: %d\n",mode);
             } else if (event.keyboard.keycode == ALLEGRO_KEY_SPACE) {
                 al_set_audio_stream_playing(stream, !al_get_audio_stream_playing(stream));
@@ -211,6 +230,9 @@ void run_main_loop() {
                 draw_oscilloscope();
                 break;
             case 2:
+                draw_spinning_oscilloscope();
+                break;
+            case 3:
                 draw_audio_levels();
                 break;
             default:
