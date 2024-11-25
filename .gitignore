@@ -5,3 +5,6 @@ CMakeCache.txt
 .vscode
 Makefile
 audiovis
+.ninja_log
+.ninja_deps
+build.ninja
