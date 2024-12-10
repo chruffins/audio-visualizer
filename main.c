@@ -15,11 +15,19 @@
 #include<allegro5/allegro_font.h>
 #include<allegro5/allegro_primitives.h>
 #include<allegro5/allegro_native_dialog.h>
+#include<allegro5/allegro_color.h>
 
-static const char* filename = "hummingbird.ogg";
-static const int width = 960;
-static const int height = 540;
+#define PI 3.14159265
+#define PARTICLE_LIMIT 8192
+#define SAMPLES 1024
+
+static char* filename = NULL;
+static const int width = 1920;
+static const int height = 1080;
 static ALLEGRO_DISPLAY* display;
+
+static float waveform_buffer[1024] = { 0 };
+static float waveform[1024] = { 0 };
 
 void must_init(int test, const char* name) {
     if (test) return;
@@ -38,35 +46,31 @@ void do_inits() {
     must_init(al_install_mouse(), "mouse");
     must_init(al_install_keyboard(), "keyboard");
 
-    al_set_new_display_flags(ALLEGRO_WINDOWED);
-    // al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_GTK_TOPLEVEL | ALLEGRO_PROGRAMMABLE_PIPELINE);
+    // al_set_new_display_flags(ALLEGRO_WINDOWED);
+    al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_GTK_TOPLEVEL | ALLEGRO_PROGRAMMABLE_PIPELINE);
 }
 
-ALLEGRO_COLOR hsv_to_color(float h, float s, float v) {
-    int hi = (int)(h * 6) % 6;
-    float f = h * 6 - hi;
-    float p = v * (1 - s);
-    float q = v * (1 - f * s);
-    float t = v * (1 - (1 - f) * s);
+void update_buffer(void* buf, unsigned int samples, void* data) {
+    static int pos = 0;
+    float* fbuf = (float*)buf;
 
-    switch (hi)
-    {
-    case 0: return al_map_rgb_f(v, t, p);
-    case 1: return al_map_rgb_f(q, v, p);
-    case 2: return al_map_rgb_f(p, v, t);
-    case 3: return al_map_rgb_f(p, q, v);
-    case 4: return al_map_rgb_f(t, p, v);
-    case 5: return al_map_rgb_f(v, p, q);
+    // assume stereo i.e. 2 channels
+    for (int i = 0; i < samples; i++) {
+        waveform_buffer[pos++] = fbuf[i * 2];
+        if (pos == 1024) {
+            memcpy(waveform, waveform_buffer, 1024 * sizeof(float));
+            pos = 0;
+            break;
+        }
     }
-
-    return al_map_rgb(0,0,0);
 }
 
 void run_main_loop() {
     display = al_create_display(width, height);
 
-    particle* particles = malloc(sizeof(particle)*5000);
+    particle* particles = malloc(sizeof(particle)*PARTICLE_LIMIT);
     int particles_ptr = 0;
+    char* filepath;
 
     ALLEGRO_MENU* menu = get_menu();
     al_set_display_menu(display, menu);
@@ -79,6 +83,7 @@ void run_main_loop() {
     ALLEGRO_MIXER* mixer = al_create_mixer(44100, ALLEGRO_AUDIO_DEPTH_FLOAT32, ALLEGRO_CHANNEL_CONF_2);
 
     ALLEGRO_MOUSE_STATE mouse_state;
+    FILE* fp = NULL;
 
     al_attach_mixer_to_voice(mixer, voice);
     al_reserve_samples(32);
@@ -88,26 +93,30 @@ void run_main_loop() {
         printf("Failed to create stream...\n");
     }
     al_attach_audio_stream_to_mixer(stream, mixer);
+    al_set_mixer_postprocess_callback(mixer, update_buffer, NULL);
 
-    bool redraw;
-    bool finished = true;
+    bool redraw = false;
+    bool unfinished = true;
     bool mousedown = false;
     int mode = 0;
+
+    const vector2 center = { width / 2, height / 2 };
 
     al_register_event_source(queue, al_get_mouse_event_source());
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_display_event_source(display));
     al_register_event_source(queue, al_get_timer_event_source(timer));
+    al_register_event_source(queue, al_get_default_menu_event_source());
 
     al_start_timer(timer);
 
-    while (finished) {
+    while (unfinished) {
         al_wait_for_event(queue, &event);
 
         switch (event.type)
         {
         case ALLEGRO_EVENT_DISPLAY_CLOSE:
-            finished = false;
+            unfinished = false;
             break;
         case ALLEGRO_EVENT_KEY_DOWN:
             if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
@@ -130,10 +139,36 @@ void run_main_loop() {
             }
             break;
         case ALLEGRO_EVENT_TIMER:
-            for (int i = 0; i < 5000; i++) {
+            for (int i = 0; i < SAMPLES; i++) {
+                particles_ptr = (particles_ptr + 1) % PARTICLE_LIMIT;
+
+                particles[particles_ptr] = particle_create_params(vector2_new((i), (center.y / 2.0) + (waveform[i] * 150)), vector2_new(0,0), 
+                vector2_new(0,0), al_map_rgb(0, 255, 0), 2);
+            }
+
+            for (int i = 0; i < PARTICLE_LIMIT; i++) {
                 particle_update(&particles[i]);
             }
             redraw = true;
+            break;
+        case ALLEGRO_EVENT_MENU_CLICK:
+            if (event.user.data1 == FILE_EXIT_ID) {
+                unfinished = false;
+            } else if (event.user.data1 == FILE_OPEN_ID) {
+                filepath = choose_audio_file();
+                if (filepath) {
+                    fp = fopen("recent.txt", "w");
+                    if (fp) {
+                        fprintf(fp, "%s", filepath);
+                        fclose(fp);
+                    }
+                    al_destroy_audio_stream(stream);
+                    stream = al_load_audio_stream(filepath, 4, 4096);
+                    if (stream) al_attach_audio_stream_to_mixer(stream, mixer);
+                    free(filepath);
+                }
+            }
+            
             break;
         case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
             if (event.mouse.button == 1) {
@@ -153,19 +188,22 @@ void run_main_loop() {
         if (event.type == ALLEGRO_EVENT_TIMER && mousedown) {
             al_get_mouse_state(&mouse_state);
             for (int i = 0; i < 5; i++) {
-                particles[particles_ptr] = particle_create_params( (vector2){ mouse_state.x, mouse_state.y }, (vector2){ (rand() % 4) - 4, (rand() % 4) - 4 }, 
-                    (vector2){ 0, 0.5 }, al_map_rgb(rand() % 255, rand() % 255, rand() % 255), 300);
-                particles_ptr = (particles_ptr + 1) % 5000;
+                particles[particles_ptr] = particle_create_params( (vector2){ mouse_state.x, mouse_state.y }, (vector2){ (rand() % 9) - 4, (rand() % 9) - 4 }, 
+                    (vector2){ 0, 0.3 }, al_map_rgb(rand() % 255, rand() % 255, rand() % 255), 300);
+                particles_ptr = (particles_ptr + 1) % PARTICLE_LIMIT;
             }
         }
 
-        if (redraw) {
+        if (redraw && al_is_event_queue_empty(queue)) {
             redraw = false;
 
             al_clear_to_color(al_map_rgb(0, 0, 0));
-            for (int i = 0; i < 5000; i++) {
+
+            al_hold_bitmap_drawing(true);
+            for (int i = 0; i < PARTICLE_LIMIT; i++) {
                 particle_draw(&particles[i]);
             }
+            al_hold_bitmap_drawing(false);
 
             al_flip_display();
         }
@@ -178,9 +216,15 @@ void run_main_loop() {
 }
 
 int main(int argc, char **argv) {
-    if (argc > 1) {
-        filename = argv[1];
-        printf("Filename set: %s\n", filename);
+    FILE* fp;
+
+    fp = fopen("recent.txt", "r");
+    if (fp) {
+        filename = malloc(sizeof(char)*300);
+        fgets(filename, 300, fp);
+        fclose(fp);
+    } else {
+        filename = "./bitterend.ogg";
     }
 
     do_inits();

@@ -24,3 +24,6 @@ vector2 vector2_sub(vector2, vector2);
 
 // get a unit vector from a radian input
 vector2 vector2_unit(double);
+
+// multiply a vector by a scalar
+vector2 vector2_scamul(vector2, double);

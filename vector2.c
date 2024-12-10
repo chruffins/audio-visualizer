@@ -19,3 +19,7 @@ vector2 vector2_sub(vector2 a, vector2 b) {
 vector2 vector2_unit(double radians) {
     return (vector2) { cos(radians), sin(radians) };
 }
+
+vector2 vector2_scamul(vector2 x, double scalar) {
+    return (vector2) { x.x * scalar, x.y * scalar }; 
+}
