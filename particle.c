@@ -22,5 +22,6 @@ void particle_update(particle* restrict this) {
 void particle_draw(particle* restrict this) {
     if (!this->enabled) return;
 
+    // al_draw_pixel(this->pos.x, this->pos.y, this->color);
     al_draw_circle(this->pos.x, this->pos.y, 3, this->color, 1);
 }

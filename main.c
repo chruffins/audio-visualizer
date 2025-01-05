@@ -8,11 +8,14 @@
 #include<fftw3.h>
 #include "menu.h"
 #include "particle.h"
+#include "font.h"
+#include "camera.h"
 
 #include<allegro5/allegro.h>
 #include<allegro5/allegro_acodec.h>
 #include<allegro5/allegro_audio.h>
 #include<allegro5/allegro_font.h>
+#include<allegro5/allegro_ttf.h>
 #include<allegro5/allegro_primitives.h>
 #include<allegro5/allegro_native_dialog.h>
 #include<allegro5/allegro_color.h>
@@ -28,6 +31,24 @@ static ALLEGRO_DISPLAY* display;
 
 static float waveform_buffer[SAMPLES] = { 0 };
 static float waveform[SAMPLES] = { 0 };
+static ALLEGRO_VERTEX waveform_visual_buffer[SAMPLES] = { 0 };
+
+static ALLEGRO_VERTEX triangles[3*1000] = { 0 };
+static int triangles_n = 0;
+
+static camera cam = { 0 };
+
+static particle* particles = NULL;
+static int particles_ptr = 0;
+
+// FPS tracking
+static double fps = 0;
+static uint64_t frames_done = 0;
+static double old_time = 0;
+
+static ALLEGRO_TRANSFORM identity_transform;
+
+static ALLEGRO_FONT* def = NULL;
 
 void must_init(int test, const char* name) {
     if (test) return;
@@ -41,13 +62,29 @@ void do_inits() {
     must_init(al_init_acodec_addon(), "allegro acodec");
     must_init(al_init_primitives_addon(), "allegro primitives");
     must_init(al_init_native_dialog_addon(), "allegro dialog/menu");
+    must_init(al_init_font_addon(), "allegro font");
+    must_init(al_init_ttf_addon(), "allegro ttf");
     must_init(al_install_audio(), "allegro audio");
-
+   
     must_init(al_install_mouse(), "mouse");
     must_init(al_install_keyboard(), "keyboard");
 
-    // al_set_new_display_flags(ALLEGRO_WINDOWED);
+    al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+    al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
+    al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
+    al_set_new_display_option(ALLEGRO_DEPTH_SIZE, 16, ALLEGRO_SUGGEST);
     al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_GTK_TOPLEVEL | ALLEGRO_PROGRAMMABLE_PIPELINE);
+
+    particles = malloc(sizeof(particle)*PARTICLE_LIMIT);
+    al_identity_transform(&identity_transform);
+
+    cam.x.x = 1;
+    cam.y.y = 1;
+    
+    cam.z = vector3_new(0, 0, 0);
+    cam.pos = vector3_new(0, 100, 0);
+
+    cam.fov = 60 * ALLEGRO_PI / 180;
 }
 
 void update_buffer(void* buf, unsigned int samples, void* data) {
@@ -65,12 +102,72 @@ void update_buffer(void* buf, unsigned int samples, void* data) {
     }
 }
 
+void handle_input() {
+
+}
+
+void add_vertex(double x, double y, double z, double u, double v, ALLEGRO_COLOR color) {
+    int i = triangles_n++;
+
+    triangles[i] = (ALLEGRO_VERTEX){ .x = x, .y = y, .z = z, .u = u, .v = v, .color = color };
+}
+
+void add_quad(double x, double y, double z, double u, double v,
+   double ux, double uy, double uz, double uu, double uv,
+   double vx, double vy, double vz, double vu, double vv,
+   ALLEGRO_COLOR c1, ALLEGRO_COLOR c2)
+{
+    add_vertex(x, y, z, u, v, c1);
+    add_vertex(x + ux, y + uy, z + uz, u + uu, v + uv, c1);
+    add_vertex(x + vx, y + vy, z + vz, u + vu, v + vv, c2);
+    add_vertex(x + vx, y + vy, z + vz, u + vu, v + vv, c2);
+    add_vertex(x + ux, y + uy, z + uz, u + uu, v + uv, c1);
+    add_vertex(x + ux + vx, y + uy + vy, z + uz + vz, u + uu + vu,
+        v + uv + vv, c2);
+}
+
+void draw_scene() {
+    ALLEGRO_TRANSFORM projection = *al_get_current_projection_transform();
+
+    // all of our 3d elements go here
+    setup_3d_projection(&cam);
+    al_clear_to_color(al_map_rgb(0, 0, 0));
+
+    al_set_render_state(ALLEGRO_DEPTH_TEST, 1);
+    al_clear_depth_buffer(1);
+
+    build_and_use_camera_transform(&cam);
+
+    //al_hold_bitmap_drawing(true);
+    for (int i = 0; i < PARTICLE_LIMIT; i++) {
+        particle_draw(&particles[i]);
+    }
+
+    al_draw_prim(waveform_visual_buffer, NULL, NULL, 0, SAMPLES, ALLEGRO_PRIM_LINE_LIST);
+    al_draw_prim(triangles, NULL, NULL, 0, triangles_n, ALLEGRO_PRIM_TRIANGLE_LIST);
+
+    // back to 2d we go
+    al_use_transform(&identity_transform);
+    al_use_projection_transform(&projection);
+    al_set_render_state(ALLEGRO_DEPTH_TEST, 0);
+
+    int lh = al_get_font_line_height(def);
+    al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 0, 0, "%.0f FPS", fps);
+    al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 1, 0, "pos: %.1f, %.1f, %.1f", cam.pos.x, cam.pos.y, cam.pos.z);
+    al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 2, 0,
+      "look: %+3.1f/%+3.1f/%+3.1f",
+         -cam.z.x, -cam.z.y, -cam.z.z);
+    //al_hold_bitmap_drawing(false);
+
+    al_flip_display();
+}
+
 void run_main_loop() {
     display = al_create_display(width, height);
 
-    particle* particles = malloc(sizeof(particle)*PARTICLE_LIMIT);
-    int particles_ptr = 0;
     char* filepath;
+
+    def = get_default_font();
 
     ALLEGRO_MENU* menu = get_menu();
     al_set_display_menu(display, menu);
@@ -99,8 +196,8 @@ void run_main_loop() {
     bool unfinished = true;
     bool mousedown = false;
     int mode = 0;
-
-    const vector2 center = { width / 2, height / 2 };
+    
+    // const vector2 center = { width / 2, height / 2 };
 
     al_register_event_source(queue, al_get_mouse_event_source());
     al_register_event_source(queue, al_get_keyboard_event_source());
@@ -110,11 +207,19 @@ void run_main_loop() {
 
     al_start_timer(timer);
 
+    add_quad(0, 0, 0, 0, 0, 
+        0, 0, 3, 0, 0,
+        3, 0, 0, 0, 0,
+        al_map_rgb(255, 0, 0), al_map_rgb(0, 0, 255));
+
     while (unfinished) {
         al_wait_for_event(queue, &event);
 
         switch (event.type)
         {
+        case ALLEGRO_EVENT_DISPLAY_RESIZE:
+            al_acknowledge_resize(display);
+            break;
         case ALLEGRO_EVENT_DISPLAY_CLOSE:
             unfinished = false;
             break;
@@ -130,20 +235,34 @@ void run_main_loop() {
             } else if (event.keyboard.keycode == ALLEGRO_KEY_DOWN) {
                 al_set_audio_stream_gain(stream, al_get_audio_stream_gain(stream)-0.1);
                 printf("new gain: %f\n", al_get_audio_stream_gain(stream));
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_Q) {
+            } else if (event.keyboard.keycode == ALLEGRO_KEY_O) {
                 al_set_audio_stream_pan(stream, al_get_audio_stream_pan(stream)-0.1 < -1 ? -1 : al_get_audio_stream_pan(stream)-0.1);
                 printf("new pan: %f\n", al_get_audio_stream_pan(stream));
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_E) {
+            } else if (event.keyboard.keycode == ALLEGRO_KEY_P) {
                 al_set_audio_stream_pan(stream, al_get_audio_stream_pan(stream)+0.1 > 1 ? 1 : al_get_audio_stream_pan(stream)+0.1);
                 printf("new pan: %f\n", al_get_audio_stream_pan(stream));
+            } else if (event.keyboard.keycode == ALLEGRO_KEY_A) {
+                cam.pos.x -= 1;
+            } else if (event.keyboard.keycode == ALLEGRO_KEY_D) {
+                cam.pos.x += 1;
+            } else if (event.keyboard.keycode == ALLEGRO_KEY_W) {
+                cam.pos.z -= 1;
+            } else if (event.keyboard.keycode == ALLEGRO_KEY_S) {
+                cam.pos.z += 1;
+            } else if (event.keyboard.keycode == ALLEGRO_KEY_Q) {
+                cam.pos.z -= 1;
+            } else if (event.keyboard.keycode == ALLEGRO_KEY_E) {
+                cam.pos.z += 1;
             }
             break;
         case ALLEGRO_EVENT_TIMER:
             for (int i = 0; i < SAMPLES; i++) {
                 particles_ptr = (particles_ptr + 1) % PARTICLE_LIMIT;
 
-                particles[particles_ptr] = particle_create_params(vector2_new((i*(1920.0 / SAMPLES)), (center.y / 2.0) + (waveform[i] * 150)), vector2_new(0,0), 
-                vector2_new(0,0), al_map_rgb(0, 255, 0), 2);
+                // particles[particles_ptr] = particle_create_params(vector2_new((i*((double)width / SAMPLES)), (center.y / 2.0) + (waveform[i] * 250)), vector2_new(0,0), 
+                // vector2_new(0,0), al_map_rgb(0, 255, 0), 2);
+
+                waveform_visual_buffer[i] = (ALLEGRO_VERTEX){ .x = (i*((double)width / SAMPLES)), .y = waveform[i] * 250, .z = 0, .color = al_map_rgb(0, 255, 0)};
             }
 
             for (int i = 0; i < PARTICLE_LIMIT; i++) {
@@ -172,7 +291,7 @@ void run_main_loop() {
             break;
         case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
             if (event.mouse.button == 1) {
-                printf("mouse down @ %d!\n", event.mouse.x);
+                printf("mouse down @ %d %d!\n", event.mouse.x, event.mouse.y);
                 mousedown = true;
             }
             break;
@@ -197,15 +316,17 @@ void run_main_loop() {
         if (redraw && al_is_event_queue_empty(queue)) {
             redraw = false;
 
-            al_clear_to_color(al_map_rgb(0, 0, 0));
+            draw_scene();
 
-            al_hold_bitmap_drawing(true);
-            for (int i = 0; i < PARTICLE_LIMIT; i++) {
-                particle_draw(&particles[i]);
-            }
-            al_hold_bitmap_drawing(false);
+            frames_done++;
+        }
 
-            al_flip_display();
+        double game_time = al_get_time();
+        if (game_time - old_time >= 0.2) {
+            fps = frames_done / (game_time - old_time);
+
+            frames_done = 0;
+            old_time = game_time;
         }
     }
 
