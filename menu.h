@@ -8,4 +8,4 @@
 ALLEGRO_MENU* get_menu();
 
 // responsibility of destroying the string is on the user
-const char* choose_audio_file();
+char* choose_audio_file();

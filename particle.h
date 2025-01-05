@@ -3,7 +3,7 @@
 #include<allegro5/allegro.h>
 #include<allegro5/allegro_primitives.h>
 
-#include "vector2.h"
+#include "vector.h"
 #include "stdint.h"
 
 struct particle {

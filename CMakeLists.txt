@@ -7,7 +7,7 @@ set(CMAKE_C_STANDARD 11)
 # find the files
 file(GLOB_RECURSE SOURCES *.c)
 
-add_executable(audiovis main.c menu.c particle.c vector2.c ringbuffer.c)
+add_executable(audiovis main.c menu.c particle.c vector.c)
 
 target_compile_options(audiovis PRIVATE -O3 -Wall -g)
 #target_compile_options(chrus_engine -g)

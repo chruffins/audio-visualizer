@@ -26,8 +26,8 @@ static const int width = 1920;
 static const int height = 1080;
 static ALLEGRO_DISPLAY* display;
 
-static float waveform_buffer[1024] = { 0 };
-static float waveform[1024] = { 0 };
+static float waveform_buffer[SAMPLES] = { 0 };
+static float waveform[SAMPLES] = { 0 };
 
 void must_init(int test, const char* name) {
     if (test) return;
@@ -57,8 +57,8 @@ void update_buffer(void* buf, unsigned int samples, void* data) {
     // assume stereo i.e. 2 channels
     for (int i = 0; i < samples; i++) {
         waveform_buffer[pos++] = fbuf[i * 2];
-        if (pos == 1024) {
-            memcpy(waveform, waveform_buffer, 1024 * sizeof(float));
+        if (pos == SAMPLES) {
+            memcpy(waveform, waveform_buffer, SAMPLES * sizeof(float));
             pos = 0;
             break;
         }
@@ -142,7 +142,7 @@ void run_main_loop() {
             for (int i = 0; i < SAMPLES; i++) {
                 particles_ptr = (particles_ptr + 1) % PARTICLE_LIMIT;
 
-                particles[particles_ptr] = particle_create_params(vector2_new((i), (center.y / 2.0) + (waveform[i] * 150)), vector2_new(0,0), 
+                particles[particles_ptr] = particle_create_params(vector2_new((i*(1920.0 / SAMPLES)), (center.y / 2.0) + (waveform[i] * 150)), vector2_new(0,0), 
                 vector2_new(0,0), al_map_rgb(0, 255, 0), 2);
             }
 

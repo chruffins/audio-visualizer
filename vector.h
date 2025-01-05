@@ -1,5 +1,4 @@
 #pragma once
-
 #include <math.h>
 
 // i don't believe in more data types...
