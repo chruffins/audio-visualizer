@@ -56,4 +56,4 @@ vector3 vector3_mul(vector3 a, double f);
 vector3 vector3_norm(vector3 a);
 double vector3_mag(vector3 a);
 
-void vector3_iadd(vector3* a, vector3 b);
+void vector3_iadd(vector3* restrict a, vector3 b);

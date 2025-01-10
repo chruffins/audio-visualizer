@@ -58,4 +58,8 @@ double vector3_mag(vector3 a) {
     return sqrt(vector3_dot(a, a));
 }
 
-void vector3_iadd(vector3* a, vector3 b) {}
+void vector3_iadd(vector3* restrict a, vector3 b) {
+    a->x += b.x;
+    a->y += b.y;
+    a->z += b.z;
+}
