@@ -8,3 +8,4 @@ audiovis
 .ninja_log
 .ninja_deps
 build.ninja
+.cmake

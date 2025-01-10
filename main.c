@@ -10,6 +10,7 @@
 #include "particle.h"
 #include "font.h"
 #include "camera.h"
+#include "inputstate.h"
 
 #include<allegro5/allegro.h>
 #include<allegro5/allegro_acodec.h>
@@ -49,6 +50,7 @@ static double old_time = 0;
 static ALLEGRO_TRANSFORM identity_transform;
 
 static ALLEGRO_FONT* def = NULL;
+static input_state input;
 
 void must_init(int test, const char* name) {
     if (test) return;
@@ -81,8 +83,8 @@ void do_inits() {
     cam.x.x = 1;
     cam.y.y = 1;
     
-    cam.z = vector3_new(0, 0, 0);
-    cam.pos = vector3_new(0, 100, 0);
+    cam.z = vector3_new(0, 0, 1);
+    cam.pos = vector3_new(0, 0, 0);
 
     cam.fov = 60 * ALLEGRO_PI / 180;
 }
@@ -103,7 +105,32 @@ void update_buffer(void* buf, unsigned int samples, void* data) {
 }
 
 void handle_input() {
+    double x = 0, y = 0, z = 0, xyz = 0;
 
+    if (input.key_down[ALLEGRO_KEY_W]) z += 1;
+    if (input.key_down[ALLEGRO_KEY_S]) z -= 1;
+    if (input.key_down[ALLEGRO_KEY_A]) x += 1;
+    if (input.key_down[ALLEGRO_KEY_D]) x -= 1;
+    if (input.key_down[ALLEGRO_KEY_E]) y += 1;
+    if (input.key_down[ALLEGRO_KEY_Q]) y -= 1;
+
+    xyz = sqrt(x * x + y * y + z * z);
+    if (xyz > 0) {
+        x /= xyz;
+        y /= xyz;
+        z /= xyz;
+
+        camera_move(&cam, -0.1 * x, -0.1 * y,
+            -0.1 * z);
+    }
+
+    if (input.mouse_buttons[1]) {
+        // printf("%d %d\n", input.mouse_dx, input.mouse_dy);
+        camera_rotate_around_axis(&cam, cam.x,
+            -0.03 * input.mouse_dy);
+        camera_rotate_around_axis(&cam, (vector3){0, 1, 0},
+            -0.03 * input.mouse_dx);
+    }
 }
 
 void add_vertex(double x, double y, double z, double u, double v, ALLEGRO_COLOR color) {
@@ -128,6 +155,7 @@ void add_quad(double x, double y, double z, double u, double v,
 
 void draw_scene() {
     ALLEGRO_TRANSFORM projection = *al_get_current_projection_transform();
+    double pitch, yaw, roll;
 
     // all of our 3d elements go here
     setup_3d_projection(&cam);
@@ -154,12 +182,37 @@ void draw_scene() {
     int lh = al_get_font_line_height(def);
     al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 0, 0, "%.0f FPS", fps);
     al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 1, 0, "pos: %.1f, %.1f, %.1f", cam.pos.x, cam.pos.y, cam.pos.z);
-    al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 2, 0,
-      "look: %+3.1f/%+3.1f/%+3.1f",
-         -cam.z.x, -cam.z.y, -cam.z.z);
-    //al_hold_bitmap_drawing(false);
+    
+    pitch = camera_get_pitch(&cam) * 180 / PI;
+    yaw = camera_get_yaw(&cam) * 180 / PI;
+    roll = camera_get_roll(&cam) * 180 / PI;
+    al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 2, 0, "pitch: %+4.0f, yaw: %+4.0f, roll: %+4.0f", pitch, yaw, roll);
 
     al_flip_display();
+}
+
+void add_checkerboard(void)
+{
+   int x, y;
+   ALLEGRO_COLOR c1 = al_color_name("yellow");
+   ALLEGRO_COLOR c2 = al_color_name("green");
+
+   for (y = 0; y < 20; y++) {
+      for (x = 0; x < 20; x++) {
+         double px = x - 20 * 0.5;
+         double py = 0.2;
+         double pz = y - 20 * 0.5;
+         ALLEGRO_COLOR c = c1;
+         if ((x + y) & 1) {
+            c = c2;
+            py -= 0.1;
+         }
+         add_quad(px, py, pz, 0, 0,
+            1, 0, 0, 0, 0,
+            0, 0, 1, 0, 0,
+            c, c);
+      }
+   }
 }
 
 void run_main_loop() {
@@ -211,6 +264,12 @@ void run_main_loop() {
         0, 0, 3, 0, 0,
         3, 0, 0, 0, 0,
         al_map_rgb(255, 0, 0), al_map_rgb(0, 0, 255));
+    add_quad(0, 3, 0, 0, 0, 
+        0, 0, 3, 0, 0,
+        3, 0, 0, 0, 0,
+        al_map_rgb(0, 255, 0), al_map_rgb(0, 0, 255));
+
+    add_checkerboard();
 
     while (unfinished) {
         al_wait_for_event(queue, &event);
@@ -224,6 +283,9 @@ void run_main_loop() {
             unfinished = false;
             break;
         case ALLEGRO_EVENT_KEY_DOWN:
+            input.key_down[event.keyboard.keycode] = 1;
+            input.key_state[event.keyboard.keycode] = 1;
+
             if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
                 mode = (mode + 1) % 4;
                 printf("mode changed: %d\n",mode);
@@ -241,19 +303,10 @@ void run_main_loop() {
             } else if (event.keyboard.keycode == ALLEGRO_KEY_P) {
                 al_set_audio_stream_pan(stream, al_get_audio_stream_pan(stream)+0.1 > 1 ? 1 : al_get_audio_stream_pan(stream)+0.1);
                 printf("new pan: %f\n", al_get_audio_stream_pan(stream));
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_A) {
-                cam.pos.x -= 1;
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_D) {
-                cam.pos.x += 1;
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_W) {
-                cam.pos.z -= 1;
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_S) {
-                cam.pos.z += 1;
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_Q) {
-                cam.pos.z -= 1;
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_E) {
-                cam.pos.z += 1;
             }
+            break;
+        case ALLEGRO_EVENT_KEY_UP:
+            input.key_state[event.keyboard.keycode] = 0;
             break;
         case ALLEGRO_EVENT_TIMER:
             for (int i = 0; i < SAMPLES; i++) {
@@ -262,12 +315,19 @@ void run_main_loop() {
                 // particles[particles_ptr] = particle_create_params(vector2_new((i*((double)width / SAMPLES)), (center.y / 2.0) + (waveform[i] * 250)), vector2_new(0,0), 
                 // vector2_new(0,0), al_map_rgb(0, 255, 0), 2);
 
-                waveform_visual_buffer[i] = (ALLEGRO_VERTEX){ .x = (i*((double)width / SAMPLES)), .y = waveform[i] * 250, .z = 0, .color = al_map_rgb(0, 255, 0)};
+                waveform_visual_buffer[i] = (ALLEGRO_VERTEX){ .x = i / 300.0, .y = 10, .z = waveform[i] * 1, .color = al_map_rgb(255, 0, 0)};
             }
 
             for (int i = 0; i < PARTICLE_LIMIT; i++) {
                 particle_update(&particles[i]);
             }
+            handle_input();
+
+            for (int i = 0; i < ALLEGRO_KEY_MAX; i++) {
+                if (input.key_state[i] == 0) input.key_down[i] = 0;
+            }
+            input.mouse_dx = 0;
+            input.mouse_dy = 0;
             redraw = true;
             break;
         case ALLEGRO_EVENT_MENU_CLICK:
@@ -294,16 +354,21 @@ void run_main_loop() {
                 printf("mouse down @ %d %d!\n", event.mouse.x, event.mouse.y);
                 mousedown = true;
             }
+            input.mouse_buttons[event.mouse.button] = 1;
             break;
         case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
             if (event.mouse.button == 1) {
                 mousedown = false;
             }
+            input.mouse_buttons[event.mouse.button] = 0;
+            break;
+        case ALLEGRO_EVENT_MOUSE_AXES:
+            input.mouse_dx += event.mouse.dx;
+            input.mouse_dy += event.mouse.dy;
             break;
         default:
             break;
         }
-
         if (event.type == ALLEGRO_EVENT_TIMER && mousedown) {
             al_get_mouse_state(&mouse_state);
             for (int i = 0; i < 5; i++) {
