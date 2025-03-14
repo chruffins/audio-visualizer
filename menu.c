@@ -17,7 +17,7 @@ ALLEGRO_MENU* get_menu() {
 
 char* choose_audio_file() {
     // need to change this to remember last directory or something
-    ALLEGRO_FILECHOOSER* restrict fc = al_create_native_file_dialog("./", "Select Audio", "*.wav;*.ogg", ALLEGRO_FILECHOOSER_FILE_MUST_EXIST);
+    ALLEGRO_FILECHOOSER* restrict fc = al_create_native_file_dialog("./", "Select Audio", "*.wav;*.ogg;*.flac", ALLEGRO_FILECHOOSER_FILE_MUST_EXIST);
     char* restrict copied_path = NULL;
     const char* restrict path;
     al_show_native_file_dialog(NULL, fc);

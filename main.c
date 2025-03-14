@@ -7,10 +7,13 @@
 
 #include<fftw3.h>
 #include "menu.h"
-#include "particle.h"
-#include "font.h"
-#include "camera.h"
+#include "graphics/particle.h"
+#include "graphics/font.h"
+#include "graphics/camera.h"
 #include "inputstate.h"
+#include "graphics/geometry.h"
+
+#include "music/song.h"
 
 #include<allegro5/allegro.h>
 #include<allegro5/allegro_acodec.h>
@@ -20,6 +23,7 @@
 #include<allegro5/allegro_primitives.h>
 #include<allegro5/allegro_native_dialog.h>
 #include<allegro5/allegro_color.h>
+#include<allegro5/allegro_image.h>
 
 #define PI 3.14159265
 #define PARTICLE_LIMIT 8192
@@ -34,6 +38,8 @@ static float waveform_buffer[SAMPLES] = { 0 };
 static float waveform[SAMPLES] = { 0 };
 static ALLEGRO_VERTEX waveform_visual_buffer[SAMPLES] = { 0 };
 
+static ch_model model;
+static ALLEGRO_BITMAP* test_texture;
 static ALLEGRO_VERTEX triangles[3*1000] = { 0 };
 static int triangles_n = 0;
 
@@ -67,11 +73,12 @@ void do_inits() {
     must_init(al_init_font_addon(), "allegro font");
     must_init(al_init_ttf_addon(), "allegro ttf");
     must_init(al_install_audio(), "allegro audio");
+    must_init(al_init_image_addon(), "allegro image");
    
     must_init(al_install_mouse(), "mouse");
     must_init(al_install_keyboard(), "keyboard");
 
-    al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP);
+    al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP | ALLEGRO_MIN_LINEAR | ALLEGRO_MIPMAP);
     al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
     al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
     al_set_new_display_option(ALLEGRO_DEPTH_SIZE, 16, ALLEGRO_SUGGEST);
@@ -127,9 +134,9 @@ void handle_input() {
     if (input.mouse_buttons[1]) {
         // printf("%d %d\n", input.mouse_dx, input.mouse_dy);
         camera_rotate_around_axis(&cam, cam.x,
-            -0.03 * input.mouse_dy);
+            -0.01 * input.mouse_dy);
         camera_rotate_around_axis(&cam, (vector3){0, 1, 0},
-            -0.03 * input.mouse_dx);
+            -0.01 * input.mouse_dx);
     }
 }
 
@@ -172,7 +179,8 @@ void draw_scene() {
     }
 
     al_draw_prim(waveform_visual_buffer, NULL, NULL, 0, SAMPLES, ALLEGRO_PRIM_LINE_LIST);
-    al_draw_prim(triangles, NULL, NULL, 0, triangles_n, ALLEGRO_PRIM_TRIANGLE_LIST);
+    al_draw_prim(triangles, NULL, test_texture, 0, triangles_n, ALLEGRO_PRIM_TRIANGLE_LIST);
+    ch_model_draw(&model);
 
     // back to 2d we go
     al_use_transform(&identity_transform);
@@ -208,8 +216,8 @@ void add_checkerboard(void)
             py -= 0.1;
          }
          add_quad(px, py, pz, 0, 0,
-            1, 0, 0, 0, 0,
-            0, 0, 1, 0, 0,
+            1, 0, 0, 424, 0,
+            0, 0, 1, 0, 424,
             c, c);
       }
    }
@@ -251,6 +259,8 @@ void run_main_loop() {
     int mode = 0;
     
     // const vector2 center = { width / 2, height / 2 };
+    // TODO: actually make something for rendering geometry
+    ch_song* song;
 
     al_register_event_source(queue, al_get_mouse_event_source());
     al_register_event_source(queue, al_get_keyboard_event_source());
@@ -260,13 +270,21 @@ void run_main_loop() {
 
     al_start_timer(timer);
 
+    ch_model_init_cube(&model, 40, 0, 0, 0);
+    test_texture = al_load_bitmap("assets/plank.jpeg");
+    if (test_texture) {
+        model.texture = test_texture;
+    } else {
+        printf("failed to add texture!\n");
+    }
+
     add_quad(0, 0, 0, 0, 0, 
-        0, 0, 3, 0, 0,
-        3, 0, 0, 0, 0,
+        0, 0, 3, 1, 0,
+        3, 0, 0, 0, 1,
         al_map_rgb(255, 0, 0), al_map_rgb(0, 0, 255));
     add_quad(0, 3, 0, 0, 0, 
-        0, 0, 3, 0, 0,
-        3, 0, 0, 0, 0,
+        0, 0, 3, 1, 0,
+        3, 0, 0, 0, 1,
         al_map_rgb(0, 255, 0), al_map_rgb(0, 0, 255));
 
     add_checkerboard();
@@ -343,7 +361,11 @@ void run_main_loop() {
                     }
                     al_destroy_audio_stream(stream);
                     stream = al_load_audio_stream(filepath, 4, 4096);
-                    if (stream) al_attach_audio_stream_to_mixer(stream, mixer);
+                    if (stream) {
+                        al_attach_audio_stream_to_mixer(stream, mixer);
+                        song = ch_song_create(filepath);
+                        ch_song_print(song);
+                    }
                     free(filepath);
                 }
             }
