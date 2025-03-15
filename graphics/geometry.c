@@ -1,7 +1,17 @@
 #include "geometry.h"
 
-static int get_vertex_index_count_from_obj(char* obj_filename, unsigned int *vcount, unsigned int *icount);
-static int read_data_from_obj(char *obj_filename, ALLEGRO_VERTEX* vertices, unsigned int vcount, int* indices, unsigned int icount);
+struct tri_helper { // tri_helper doesn't own of its pointers
+    ch_obj* obj;
+    ALLEGRO_VERTEX* vertices;
+    int* indices;
+    int face_vertex_start; // this and vertex_start should be equal at the beginning and end of the loop
+    int vertex_start;
+    int index_start;
+};
+
+static ch_model ch_model_from_ch_obj(ch_obj* obj, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags);
+static void add_triangle_to_indices(int vi1, int vi2, int vi3, void* helper);
+static void triangulate_polygon(CH_VERTEX* vertices, int n_vertices, void (*emit_triangle)(int vi1, int vi2, int vi3, void* user_data));
 
 ch_model ch_model_create(ALLEGRO_VERTEX *vertices, unsigned int n_vertices, int *indices, unsigned int n_indices, 
     ALLEGRO_BITMAP *texture, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags, ALLEGRO_PRIM_TYPE prim_type) {
@@ -117,129 +127,58 @@ void ch_model_init_cube(ch_model* model, double lwh, double x, double y, double 
     ch_model_init(model, vertices, indices, 24, 36, bmp, ALLEGRO_PRIM_BUFFER_DYNAMIC, ALLEGRO_PRIM_TRIANGLE_LIST);
 }
 
-ch_model ch_model_load_obj(char* obj_filename, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags) {
-    unsigned int vertex_count = 0;
-    unsigned int index_count = 0;
-
-    ALLEGRO_VERTEX* vertices;
-    int* indices;
-
-    printf("pulling vertex and index count now\n");
-    get_vertex_index_count_from_obj(obj_filename, &vertex_count, &index_count);
-    printf("got %d vertices and %d indices\n", vertex_count, index_count);
-
-    vertices = calloc(sizeof(ALLEGRO_VERTEX), vertex_count);
-    indices = calloc(sizeof(int), index_count);
-
-    printf("pulling data now\n");
-    read_data_from_obj(obj_filename, vertices, vertex_count, indices, index_count);
-    return ch_model_create(vertices, vertex_count, indices, index_count, NULL, buffer_flags, ALLEGRO_PRIM_TRIANGLE_LIST);
+ch_model ch_model_load(char* obj_filename, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags) {
+    return ch_model_from_ch_obj(ch_obj_load(obj_filename), buffer_flags);
 }
 
-int get_vertex_index_count_from_obj(char* obj_filename, unsigned int *vcount, unsigned int *icount) {
-    FILE* file = fopen(obj_filename, "r");
-    if (file == NULL) {
-        return 1;
+// this will consume and destroy the obj
+ch_model ch_model_from_ch_obj(ch_obj* obj, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags) {
+    if (obj == NULL) {
+        // TODO: address this lol
+        printf("you passed in a bad model\n");
+        exit(1);
     }
+    int vertex_count[2] = {0, 0}; // quirk with al_triangulate_polygon that makes us do this
 
-    char line_buffer[256];
+    ALLEGRO_VERTEX* vertices = calloc(sizeof(ALLEGRO_VERTEX), obj->face_vertex_sum);
+    int* indices = calloc(sizeof(int), obj->triangle_count * 3);
+    struct tri_helper helper = {.obj = obj, .vertices = vertices, .indices = indices, .face_vertex_start = 0, .vertex_start = 0};
+    ch_model model;
 
-    while (fgets(line_buffer, 256, file)) {
-        if (strncmp(line_buffer, "v ", 2) == 0) {
-            (*vcount)++;
-        } else if (strncmp(line_buffer, "f ", 2) == 0) {
-            (*icount) += 3;
+    for (int i = 0; i < obj->face_count; i++) {
+        vertex_count[0] = obj->face_vertex_counts[i];
+        // pull out the VERTICES!!!
+        for (int j = 0; j < vertex_count[0]; j++) {
+            ch_obj_face_vertex fv = obj->face_vertices[helper.face_vertex_start + j];
+            ch_obj_vertex v = obj->vertices[fv.v];
+            ch_obj_vt vt = obj->vts[fv.vt];
+
+            vertices[helper.vertex_start] = (ALLEGRO_VERTEX){ .x = v.x, .y = v.y, .z = v.z, .u = vt.u, .v = vt.v, .color = al_map_rgb_f(v.r, v.g, v.b)};
+            helper.vertex_start++;
         }
+        // triangulation gives us INDICES!!
+        al_triangulate_polygon((float*)(obj->face_vertices + helper.face_vertex_start), sizeof(ch_obj_face_vertex), vertex_count, add_triangle_to_indices, &helper);
+        helper.face_vertex_start += vertex_count[0];
     }
+    printf("we now have %d vertices and %d indices\n", helper.vertex_start, helper.index_start);
+    model = ch_model_create(vertices, obj->face_vertex_sum, indices, obj->triangle_count * 3, NULL, buffer_flags, ALLEGRO_PRIM_TRIANGLE_LIST);
 
-    fclose(file);
-    return 0;
+    ch_obj_destroy(obj);
+    return model;
 }
 
-int read_data_from_obj(char *obj_filename, ALLEGRO_VERTEX* vertices, unsigned int vcount, int* indices, unsigned int icount) {
-    FILE* file = fopen(obj_filename, "r");
-    char line_buffer[256];
+void add_triangle_to_indices(int vi1, int vi2, int vi3, void* vhelper) {
+    // so the ints are indices... we need to offset by index in helper to get the face vertices
+    static int calls = 0;
+    struct tri_helper* helper = (struct tri_helper*)vhelper;
+    //printf("%d %d %d\n", vi1, vi2, vi3);
 
-    unsigned v = 0;
-    unsigned i = 0;
-    unsigned vt = 0;
-
-    int rc = 0;
-
-    // TODO: fix assumption that vcount and icount arent overran via like an overflow (this is like probably the fastest way ever to fuck this program up)
-
-    while (fgets(line_buffer, 256, file)) {
-        if (strncmp(line_buffer, "v ", 2) == 0) { // indicates a vertex
-            float vs[6];
-
-            rc = sscanf(line_buffer, "v %f %f %f %f %f %f", vs, vs+1, vs+2, vs+3, vs+4, vs+5);
-            vertices[v].color = al_map_rgb_f(1, 1, 1);
-            switch (rc)
-            {
-            case 6:
-                // interpret as x y z r g b (x y z gets read in the next bits)
-                vertices[v].color = al_map_rgb_f(vs[3], vs[4], vs[5]);
-            case 3:
-            case 4:
-                // interpret as x y z [w] (no support for w)
-                vertices[v].x = vs[0];
-                vertices[v].y = vs[1];
-                vertices[v].z = vs[2];
-                break;
-            default:
-                // invalid vertex declaration, just blow up
-                fprintf(stderr, "bad vertex format: %s\n", line_buffer);
-                return 1;
-                break;
-            }
-            v++;
-        } else if (strncmp(line_buffer, "vt ", 3) == 0) { // looking at UV coordinates right now
-            float uv[2];
-
-            rc = sscanf(line_buffer, "vt %f %f", uv, uv+1);
-            switch (rc)
-            {
-            case 2:
-                //vertices[vt].v = uv[1];
-            case 1:
-                //vertices[vt].u = uv[0];
-                break;
-            default:
-                fprintf(stderr, "bad vertex texture format: %s\n", line_buffer);
-                return 1;
-            }
-            vt++;
-        } else if (strncmp(line_buffer, "f ", 2) == 0) { // defining indices right now (in terms of faces which we consider triangles)
-            int vi[3]; // assuming we only get apssed in triangles (bad assumption :sob:)
-            int vti[3];
-            int vni[3]; // lol we dont use these at all yet
-            if ((rc = sscanf(line_buffer + 2, "%d %d %d", vi, vi + 1, vi + 2)) == 3) {
-                indices[i] = vi[0] < 0 ? vcount + vi[0] : vi[0] - 1;
-                indices[i+1] = vi[1] < 0 ? vcount + vi[1] : vi[1] - 1;
-                indices[i+2] = vi[2] < 0 ? vcount + vi[2] : vi[2] - 1;
-            } else if ((rc = sscanf(line_buffer + 2, "%d/%d %d/%d %d/%d", vi, vti, vi + 1, vti + 1, vi + 2, vti + 2)) == 6) {
-                indices[i] = vi[0] < 0 ? vcount + vi[0] : vi[0] - 1;
-                indices[i+1] = vi[1] < 0 ? vcount + vi[1] : vi[1] - 1;
-                indices[i+2] = vi[2] < 0 ? vcount + vi[2] : vi[2] - 1;
-            } else if ((rc = sscanf(line_buffer + 2, "%d//%d %d//%d %d//%d", vi, vni, vi + 1, vni + 1, vi + 2, vni + 2)) == 6) {
-                indices[i] = vi[0] < 0 ? vcount + vi[0] : vi[0] - 1;
-                indices[i+1] = vi[1] < 0 ? vcount + vi[1] : vi[1] - 1;
-                indices[i+2] = vi[2] < 0 ? vcount + vi[2] : vi[2] - 1;
-            } else if ((rc = sscanf(line_buffer + 2, "%d/%d/%d %d/%d/%d %d/%d/%d", vi, vti, vni, vi + 1, vti + 1, vni + 1, vi + 2, vti + 2, vni + 2)) == 9) {
-                indices[i] = vi[0] < 0 ? vcount + vi[0] : vi[0] - 1;
-                indices[i+1] = vi[1] < 0 ? vcount + vi[1] : vi[1] - 1;
-                indices[i+2] = vi[2] < 0 ? vcount + vi[2] : vi[2] - 1;
-            } else {
-                fprintf(stderr, "bad face format: %s\n", line_buffer);
-                return 1;
-            }
-
-            i += 3;
-        }
+    helper->indices[helper->index_start] = vi1 + helper->face_vertex_start;
+    helper->indices[helper->index_start + 1] = vi2 + helper->face_vertex_start;
+    helper->indices[helper->index_start + 2] = vi3 + helper->face_vertex_start;
+    helper->index_start += 3;
+    //printf("triangle %d made\n");
+    if (helper->obj->face_vertex_counts[helper->face_vertex_start] == 4) {
+        printf("quaded\n");
     }
-    printf("ended up pulling out %d (w/ %d vts) vertices and %d indices\n", v, vt, i);
-
-    fclose(file);
-
-    return 0;
 }

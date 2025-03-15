@@ -4,7 +4,10 @@
 #include<stdlib.h>
 #include<stdio.h>
 
+#include "obj_parser.h"
+
 typedef struct ch_model ch_model;
+typedef ALLEGRO_VERTEX CH_VERTEX;
 
 struct ch_model {
     ALLEGRO_VERTEX* vertex_data;
@@ -26,4 +29,4 @@ void ch_model_free(ch_model* model); // free resources
 
 void ch_model_init_cube(ch_model* model, double lwh, double x, double y, double z);
 
-ch_model ch_model_load_obj(char* obj_filename, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags);
+ch_model ch_model_load(char* obj_filename, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags);
