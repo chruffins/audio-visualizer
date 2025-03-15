@@ -5,6 +5,7 @@
 #include<complex.h>
 #include<memory.h>
 
+#include<sqlite3.h>
 #include<fftw3.h>
 #include "menu.h"
 #include "graphics/particle.h"
@@ -14,6 +15,7 @@
 #include "graphics/geometry.h"
 
 #include "music/song.h"
+#include "music/database.h"
 
 #include<allegro5/allegro.h>
 #include<allegro5/allegro_acodec.h>
@@ -58,6 +60,9 @@ static ALLEGRO_TRANSFORM identity_transform;
 static ALLEGRO_FONT* def = NULL;
 static input_state input;
 
+// database
+static sqlite3* db;
+
 void must_init(int test, const char* name) {
     if (test) return;
 
@@ -94,6 +99,15 @@ void do_inits() {
     cam.pos = vector3_new(0, 0, 0);
 
     cam.fov = 60 * ALLEGRO_PI / 180;
+
+    int rc = sqlite3_open("music.db", &db);
+    if (rc) {
+        fprintf(stderr, "can't open database: %s\n", sqlite3_errmsg(db));
+    }
+    rc = init_database(db);
+    if (rc) {
+        exit(1);
+    }
 }
 
 void update_buffer(void* buf, unsigned int samples, void* data) {
@@ -270,10 +284,11 @@ void run_main_loop() {
 
     al_start_timer(timer);
 
-    ch_model_init_cube(&model, 40, 0, 0, 0);
+    model = ch_model_load("assets/teapot.obj", ALLEGRO_PRIM_BUFFER_STATIC);
+    //ch_model_init_cube(&model, 40, 0, 0, 0);
     test_texture = al_load_bitmap("assets/plank.jpeg");
     if (test_texture) {
-        model.texture = test_texture;
+        //model.texture = test_texture;
     } else {
         printf("failed to add texture!\n");
     }
@@ -438,6 +453,8 @@ int main(int argc, char **argv) {
     do_inits();
 
     run_main_loop();
+
+    sqlite3_close(db);
 
     return 0;
 }
