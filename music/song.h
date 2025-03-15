@@ -12,7 +12,7 @@ struct ch_metadata {
     char *artist;
     char *album;
     // char *album_artist;
-    char *composer;
+    // char *composer;
     char *genre;
     char *comment;
     unsigned int track;
