@@ -8,7 +8,7 @@ set(CMAKE_C_STANDARD 11)
 file(GLOB_RECURSE SOURCES *.c)
 
 add_executable(audiovis main.c menu.c 
-graphics/particle.c graphics/vector.c graphics/font.c graphics/camera.c graphics/geometry.c
+graphics/particle.c graphics/vector.c graphics/font.c graphics/camera.c graphics/geometry.c graphics/obj_parser.c
 music/song.c)
 
 target_compile_options(audiovis PRIVATE -O3 -Wall -g -ftree-vectorize)
