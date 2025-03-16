@@ -9,7 +9,6 @@
     "title TEXT, " \
     "artist_id INTEGER, " \
     "album_id INTEGER, " \
-    "genre TEXT, " \
     "comment TEXT, " \
     "duration INTEGER, " \
     "FOREIGN KEY(artist_id) REFERENCES artists(id), " \
@@ -24,16 +23,47 @@
     "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
     "name TEXT NOT NULL, " \
     "artist_id TEXT NOT NULL, " \
+    "year INTEGER, " \
     "picture_path TEXT);" \
+    \
+    "CREATE TABLE IF NOT EXISTS genres(" \
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
+    "name TEXT NOT NULL," \
+    "parent_id INTEGER" \
+    ");" \
     \
     "CREATE TABLE IF NOT EXISTS playlists (" \
     "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
     "picture_path TEXT," \
     "name TEXT NOT NULL);" \
     \
+    "CREATE TABLE IF NOT EXISTS song_artists(" \
+    "song_id INTEGER NOT NULL, " \
+    "artist_id INTEGER NOT NULL, " \
+    "FOREIGN KEY(song_id) REFERENCES songs(id), " \
+    "FOREIGN KEY(artist_id) REFERENCES artists(id), " \
+    "PRIMARY KEY(song_id, artist_id)" \
+    ");" \
+    \
+    "CREATE TABLE IF NOT EXISTS album_artists(" \
+    "album_id INTEGER NOT NULL, " \
+    "artist_id INTEGER NOT NULL, " \
+    "FOREIGN KEY(album_id) REFERENCES albums(id), " \
+    "FOREIGN KEY(artist_id) REFERENCES artists(id), " \
+    "PRIMARY KEY(album_id, artist_id)" \
+    ");" \
+    \
+    "CREATE TABLE IF NOT EXISTS song_genres (" \
+    "song_id INTEGER NOT NULL, " \
+    "genre_id INTEGER NOT NULL, " \
+    "FOREIGN KEY(song_id) REFERENCES songs(id), " \
+    "FOREIGN KEY(genre_id) REFERENCES genres(id), " \
+    "PRIMARY KEY(song_id, genre_id));" \
+    \
     "CREATE TABLE IF NOT EXISTS playlist_songs (" \
-    "playlist_id INTEGER, " \
-    "song_id INTEGER, " \
+    "playlist_id INTEGER NOT NULL, " \
+    "song_id INTEGER NOT NULL, " \
+    "position INTEGER NOT NULL, " \
     "FOREIGN KEY(playlist_id) REFERENCES playlists(id), " \
     "FOREIGN KEY(song_id) REFERENCES songs(id), " \
     "PRIMARY KEY(playlist_id, song_id));"

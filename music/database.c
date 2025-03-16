@@ -10,5 +10,7 @@ int init_database(sqlite3* db) {
         return 1;
     }
 
+    printf("database initialized!\n");
+
     return 0;
 }
