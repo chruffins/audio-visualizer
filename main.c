@@ -16,6 +16,7 @@
 
 #include "music/song.h"
 #include "music/database.h"
+#include "music/audio_parser.h"
 
 #include<allegro5/allegro.h>
 #include<allegro5/allegro_acodec.h>
@@ -451,7 +452,7 @@ int main(int argc, char **argv) {
     }
 
     do_inits();
-
+    import_music_from_folder(db, "/home/chris/Music/complete/fivepointsquare/cd 1/");
     run_main_loop();
 
     sqlite3_close(db);
