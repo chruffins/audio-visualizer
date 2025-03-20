@@ -73,9 +73,9 @@
     "position INTEGER NOT NULL, " \
     "FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE, " \
     "FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE, " \
-    "PRIMARY KEY(playlist_id, position));" \
-    \
-    "INSERT INTO album_types (name) VALUES ('album'), ('ep'), ('single'), ('compilation');"
+    "PRIMARY KEY(playlist_id, position));"
+
+#define INIT_ALBUM_TYPES "INSERT INTO album_types (name) VALUES ('album'), ('ep'), ('single'), ('compilation');"
 
 int init_database(sqlite3* db);
 
@@ -89,5 +89,3 @@ int add_song_artist(sqlite3* db, int song_id, int artist_id);
 int add_album_artist(sqlite3* db, int album_id, int artist_id);
 int add_song_genre(sqlite3* db, int song_id, int genre_id);
 int add_playlist_song(sqlite3* db, int playlist_id, int song_id, int position);
-
-int add_song_from_filename();
