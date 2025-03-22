@@ -1,6 +1,6 @@
 #pragma once
 #include<sqlite3.h>
-#include<taglib/tag_c.h>
+#include<taglib-2/tag_c.h>
 #include<allegro5/allegro.h>
 
 #include<stdio.h>

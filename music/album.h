@@ -15,3 +15,6 @@ struct ch_album {
 inline ch_album ch_album_create() {
     return (ch_album) { 0 };
 }
+
+void ch_album_print(ch_album* album);
+void ch_album_sort(ch_album* album);

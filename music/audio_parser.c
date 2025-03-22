@@ -37,11 +37,15 @@ static int import_album_callback(ALLEGRO_FS_ENTRY *entry, void *valbum) {
     // appears we're on a file then, hopefully it's a compatible one?
     if (is_audio_file(fname)) {
         // song import logic
-        printf("found music file %s\n", fname);
-        ch_song_vec_push(&album->songs, ch_song_load(fname));
+        //printf("found music file %s\n", fname);
+        ch_song* song = ch_song_load(fname);
+        if (!album->name && song->metadata.album) {
+            album->name = song->metadata.album;
+        }
+        ch_song_vec_push(&album->songs, song);
     } else if (is_image_file(fname)) {
         // album image import logic
-        album->picture_path = fname;
+        album->picture_path = strdup(fname);
     }
 
     return ALLEGRO_FOR_EACH_FS_ENTRY_OK;
@@ -82,7 +86,11 @@ int import_album_from_folder(sqlite3* db, const char* dir_path) {
 
     al_for_each_fs_entry(dir, import_album_callback, &album);
 
-    printf("imported %d songs\n", album.songs.size);
+    ch_album_sort(&album);
+    ch_album_print(&album);
+    for (int i = 0; i < album.songs.size; i++) {
+        ch_song_print(album.songs.data[i]);
+    }
 
     return 0;
 }
