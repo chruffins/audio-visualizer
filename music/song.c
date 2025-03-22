@@ -1,6 +1,8 @@
 #include "song.h"
 
-static char* safe_str(char* str) {
+static const char* SPECIAL_PROPERTIES[] = {"ALBUMARTIST", NULL};
+
+static const char* safe_str(const char* str) {
     if (str == NULL) {
         return "(null)";
     } else if (strcmp(str, "") == 0) {
@@ -23,6 +25,7 @@ int ch_metadata_populate(ch_metadata* md, char* filename) {
     }
 
     TagLib_Tag *tag = taglib_file_tag(file);
+    const TagLib_AudioProperties *properties = taglib_file_audioproperties(file);
     if (tag == NULL) {
         printf("taglib failed to make tags!\n");
         taglib_file_free(file);
@@ -38,7 +41,23 @@ int ch_metadata_populate(ch_metadata* md, char* filename) {
     md->track = taglib_tag_track(tag);
     md->comment = strdup(taglib_tag_comment(tag));
 
+    md->duration = taglib_audioproperties_length(properties);
+
+    char **keys = taglib_complex_property_keys(file);
+    for (int i = 0; keys && keys[i]; i++) {
+        printf("key %d: %s\n", i, keys[i]);
+    }
+    /*
+    for (int i = 0; SPECIAL_PROPERTIES[i]; i++) {
+        TagLib_Complex_Property_Attribute ***attrs = taglib_complex_property_get(file, SPECIAL_PROPERTIES[i]);
+        for (int j = 0; attrs[j]; j++) {
+            
+        }
+    }
+    */
+    
     taglib_tag_free_strings();
+    taglib_complex_property_free_keys(keys);
     taglib_file_free(file);
 
     return 0;
@@ -51,6 +70,8 @@ void ch_metadata_print(ch_metadata* md) {
     printf("Genre: %s\n", safe_str(md->genre));
     printf("Year: %u\n", md->year);
     printf("Track: %u\n", md->track);
+    printf("Duration: %u\n", md->duration);
+
     printf("Comment: %s\n", safe_str(md->title));
 }
 
@@ -60,17 +81,30 @@ void ch_song_print(ch_song* song) {
     ch_metadata_print(&song->metadata);
 }
 
-ch_song *ch_song_create(char *filename) {
+ch_song* ch_song_load(const char *filename) {
     ch_song* s = malloc(sizeof(ch_song));
     if (!s) {
         return NULL;
     }
 
-    s->filename = filename;
+    s->filename = strdup(filename);
     s->metadata = ch_metadata_create();
     if (filename) {
         ch_metadata_populate(&s->metadata, filename);
     }
 
     return s;
+}
+
+int ch_song_track_comparator(const void* va, const void* vb) {
+    const ch_song* a = *(ch_song**)va;
+    const ch_song* b = *(ch_song**)vb;
+
+    if (a->metadata.track < b->metadata.track) {
+        return -1;
+    } else if (a->metadata.track > b->metadata.track) {
+        return 1;
+    } else {
+        return 0;
+    }
 }

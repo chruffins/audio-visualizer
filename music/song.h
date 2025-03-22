@@ -1,5 +1,5 @@
 #pragma once
-#include<taglib/tag_c.h>
+#include<taglib-2/tag_c.h>
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
@@ -11,16 +11,21 @@ typedef struct ch_song ch_song;
 DEF_VECTOR(ch_song)
 
 struct ch_metadata {
-    char *title;
-    char *artist;
-    char *album;
-    // char *album_artist;
-    // char *composer;
-    char *genre;
-    char *comment;
+    const char *title;
+    const char *artist;
+    const char *album;
+    const char *album_artist;
+    const char *genre;
+    const char *comment;
     unsigned int track;
     unsigned int disc;
     unsigned int year;
+    unsigned int duration;
+    // above are basic tags
+
+    // below are more specialized tags
+    const char *composer;
+    const char *conductor;
     float bpm;
 };
 
@@ -31,9 +36,7 @@ struct ch_song {
 
 ch_metadata ch_metadata_create();
 
-ch_song* ch_song_create(char* filename);
-
-ch_song* ch_song_load(char* filename);
+ch_song* ch_song_load(const char* filename);
 
 inline ch_song_vec ch_song_vec_init() {
     ch_song_vec vec;
@@ -54,3 +57,5 @@ inline void ch_song_vec_free(ch_song_vec *vec) {
 }
 
 void ch_song_print(ch_song* song);
+
+int ch_song_track_comparator(const void* a, const void* b);
