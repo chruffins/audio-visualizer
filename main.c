@@ -262,6 +262,7 @@ void run_main_loop() {
     al_reserve_samples(32);
 
     ALLEGRO_AUDIO_STREAM* stream = al_load_audio_stream(filename, 4, 4096);
+    //al_set_audio_stream
     if (!stream) {
         printf("Failed to create stream...\n");
     }
@@ -282,6 +283,7 @@ void run_main_loop() {
     al_register_event_source(queue, al_get_display_event_source(display));
     al_register_event_source(queue, al_get_timer_event_source(timer));
     al_register_event_source(queue, al_get_default_menu_event_source());
+    al_register_event_source(queue, al_get_audio_stream_event_source(stream));
 
     al_start_timer(timer);
 
@@ -315,6 +317,9 @@ void run_main_loop() {
             break;
         case ALLEGRO_EVENT_DISPLAY_CLOSE:
             unfinished = false;
+            break;
+        case ALLEGRO_EVENT_AUDIO_STREAM_FINISHED:
+            printf("song finished!\n");
             break;
         case ALLEGRO_EVENT_KEY_DOWN:
             input.key_down[event.keyboard.keycode] = 1;
@@ -379,10 +384,15 @@ void run_main_loop() {
                     stream = al_load_audio_stream(filepath, 4, 4096);
                     if (stream) {
                         al_attach_audio_stream_to_mixer(stream, mixer);
-                        song = ch_song_create(filepath);
-                        ch_song_print(song);
+                        //song = ch_song_create(filepath);
+                        //ch_song_print(song);
                     }
                     free(filepath);
+                }
+            } else if (event.user.data1 == FOLDER_OPEN_ID) {
+                filepath = choose_album_folder();
+                if (filepath) {
+                    import_album_from_folder(db, filepath);
                 }
             }
             
@@ -452,7 +462,7 @@ int main(int argc, char **argv) {
     }
 
     do_inits();
-    import_music_from_folder(db, "/home/chris/Music/complete/fivepointsquare/cd 1/");
+    //import_album_from_folder(db, "/home/chris/Music/complete/Arindale64/SSX Tricky");
     run_main_loop();
 
     sqlite3_close(db);
