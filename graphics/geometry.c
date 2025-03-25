@@ -49,7 +49,7 @@ void ch_model_init(ch_model *model, ALLEGRO_VERTEX *init_vertices, int *index_bu
 }
 
 void ch_model_draw(ch_model* model) {
-    int result = al_draw_indexed_buffer(model->vertex_buffer, model->texture, model->index_buffer, 0, model->num_indices, model->prim_type);
+    al_draw_indexed_buffer(model->vertex_buffer, model->texture, model->index_buffer, 0, model->num_indices, model->prim_type);
 }
 
 void ch_model_free(ch_model* model) {

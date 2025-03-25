@@ -1,5 +1,8 @@
 #pragma once
+#include<stdlib.h>
+
 #include "song.h"
+
 
 typedef struct ch_album ch_album;
 
@@ -18,3 +21,4 @@ inline ch_album ch_album_create() {
 
 void ch_album_print(ch_album* album);
 void ch_album_sort(ch_album* album);
+void ch_album_shuffle(ch_album* album);

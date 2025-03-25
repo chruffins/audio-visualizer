@@ -268,3 +268,31 @@ int add_playlist_song(sqlite3* db, int playlist_id, int song_id, int position) {
     sqlite3_finalize(stmt);
     return position;
 }
+
+int get_artist_id_by_name(sqlite3 *db, const char *name) {
+    static const char* sql = "SELECT id FROM artists WHERE name = ?";
+    sqlite3_stmt* stmt;
+
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "failed to prepare get artist by name statement: %s\n", sqlite3_errmsg(db));
+        return rc;
+    }
+
+    sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        int artist_id = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+        return artist_id;
+    } else if (rc == SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        return -1;
+    } else {
+        fprintf(stderr, "failed to execute get artist by name statement: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+}

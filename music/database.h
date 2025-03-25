@@ -89,3 +89,9 @@ int add_song_artist(sqlite3* db, int song_id, int artist_id);
 int add_album_artist(sqlite3* db, int album_id, int artist_id);
 int add_song_genre(sqlite3* db, int song_id, int genre_id);
 int add_playlist_song(sqlite3* db, int playlist_id, int song_id, int position);
+
+int get_genre_by_name(sqlite3* db, const char* name);
+int get_artist_id_by_name(sqlite3* db, const char* name);
+int get_playlist(sqlite3* db, const char* name);
+int get_album_id_by_name_and_artist(sqlite3* db, const char* name, int artist_id);
+int get_song(sqlite3* db, const char* name);

@@ -85,12 +85,26 @@ int import_album_from_folder(sqlite3* db, const char* dir_path) {
     }
 
     al_for_each_fs_entry(dir, import_album_callback, &album);
+    if (album.songs.size > 0) {
+        album.album_artist = strdup(album.songs.data[0]->metadata.album_artist);
+    }
 
     ch_album_sort(&album);
+    ch_album_shuffle(&album);
     ch_album_print(&album);
     for (int i = 0; i < album.songs.size; i++) {
         ch_song_print(album.songs.data[i]);
     }
+
+    int artist_id = get_artist_id_by_name(db, album.album_artist);
+    if (artist_id == -1) {
+        artist_id = add_artist(db, album.album_artist, NULL, NULL);
+        printf("created new artist %d\n", artist_id);
+    } else {
+        printf("found artist %d\n", artist_id);
+    }
+
+    int album_id = add_album(db, album.name, artist_id, album.picture_path);
 
     return 0;
 }

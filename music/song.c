@@ -43,21 +43,20 @@ int ch_metadata_populate(ch_metadata* md, char* filename) {
 
     md->duration = taglib_audioproperties_length(properties);
 
-    char **keys = taglib_complex_property_keys(file);
-    for (int i = 0; keys && keys[i]; i++) {
-        printf("key %d: %s\n", i, keys[i]);
-    }
-    /*
+    // getting some special properties now
+
     for (int i = 0; SPECIAL_PROPERTIES[i]; i++) {
-        TagLib_Complex_Property_Attribute ***attrs = taglib_complex_property_get(file, SPECIAL_PROPERTIES[i]);
-        for (int j = 0; attrs[j]; j++) {
-            
+        char **prop = taglib_property_get(file, SPECIAL_PROPERTIES[i]);
+        if (prop) {
+            for (int j = 0; prop[j]; j++) {
+                md->album_artist = strdup(prop[j]);
+                break;
+            }
         }
+        taglib_property_free(prop);
     }
-    */
     
     taglib_tag_free_strings();
-    taglib_complex_property_free_keys(keys);
     taglib_file_free(file);
 
     return 0;
