@@ -121,8 +121,8 @@ void ch_model_init_cube(ch_model* model, double lwh, double x, double y, double 
         vertices[i].x = (vertices[i].x * lwh / 2) + x;
         vertices[i].y = (vertices[i].y * lwh / 2) + y;
         vertices[i].z = (vertices[i].z * lwh / 2) + z;
-        vertices[i].u *= 424;
-        vertices[i].v *= 424;
+        vertices[i].u *= 512;
+        vertices[i].v *= 512;
     }
 
     ch_model_init(model, vertices, indices, 24, 36, bmp, ALLEGRO_PRIM_BUFFER_DYNAMIC, ALLEGRO_PRIM_TRIANGLE_LIST);

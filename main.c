@@ -13,6 +13,7 @@
 #include "graphics/camera.h"
 #include "inputstate.h"
 #include "graphics/geometry.h"
+#include "graphics/visualization.h"
 
 #include "music/song.h"
 #include "music/database.h"
@@ -37,6 +38,7 @@ static const int width = 1920;
 static const int height = 1080;
 static ALLEGRO_DISPLAY* display;
 
+static ch_vis_buffer *vb;
 static float waveform_buffer[SAMPLES] = { 0 };
 static float waveform[SAMPLES] = { 0 };
 static ALLEGRO_VERTEX waveform_visual_buffer[SAMPLES] = { 0 };
@@ -90,6 +92,8 @@ void do_inits() {
     al_set_new_display_option(ALLEGRO_DEPTH_SIZE, 16, ALLEGRO_SUGGEST);
     al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_GTK_TOPLEVEL | ALLEGRO_PROGRAMMABLE_PIPELINE);
 
+    vb = ch_vis_buffer_create();
+
     particles = malloc(sizeof(particle)*PARTICLE_LIMIT);
     al_identity_transform(&identity_transform);
 
@@ -116,6 +120,8 @@ void update_buffer(void* buf, unsigned int samples, void* data) {
     float* fbuf = (float*)buf;
 
     // assume stereo i.e. 2 channels
+    ch_vis_buffer_add_samples(vb, fbuf);
+    /*
     for (int i = 0; i < samples; i++) {
         waveform_buffer[pos++] = fbuf[i * 2];
         if (pos == SAMPLES) {
@@ -124,6 +130,8 @@ void update_buffer(void* buf, unsigned int samples, void* data) {
             break;
         }
     }
+    */
+   //ch_vis_buffer_do_fft(vb);
 }
 
 void handle_input() {
@@ -181,17 +189,12 @@ void draw_scene() {
 
     // all of our 3d elements go here
     setup_3d_projection(&cam);
-    al_clear_to_color(al_map_rgb(0, 0, 0));
+    al_clear_to_color(al_map_rgb(25, 25, 25));
 
     al_set_render_state(ALLEGRO_DEPTH_TEST, 1);
     al_clear_depth_buffer(1);
 
     build_and_use_camera_transform(&cam);
-
-    //al_hold_bitmap_drawing(true);
-    for (int i = 0; i < PARTICLE_LIMIT; i++) {
-        particle_draw(&particles[i]);
-    }
 
     al_draw_prim(waveform_visual_buffer, NULL, NULL, 0, SAMPLES, ALLEGRO_PRIM_LINE_LIST);
     al_draw_prim(triangles, NULL, test_texture, 0, triangles_n, ALLEGRO_PRIM_TRIANGLE_LIST);
@@ -202,6 +205,7 @@ void draw_scene() {
     al_use_projection_transform(&projection);
     al_set_render_state(ALLEGRO_DEPTH_TEST, 0);
 
+    al_hold_bitmap_drawing(true);
     int lh = al_get_font_line_height(def);
     al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 0, 0, "%.0f FPS", fps);
     al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 1, 0, "pos: %.1f, %.1f, %.1f", cam.pos.x, cam.pos.y, cam.pos.z);
@@ -210,6 +214,8 @@ void draw_scene() {
     yaw = camera_get_yaw(&cam) * 180 / PI;
     roll = camera_get_roll(&cam) * 180 / PI;
     al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 2, 0, "pitch: %+4.0f, yaw: %+4.0f, roll: %+4.0f", pitch, yaw, roll);
+    al_hold_bitmap_drawing(false);
+    draw_waveforms(display, test_texture, vb);
 
     al_flip_display();
 }
@@ -217,8 +223,8 @@ void draw_scene() {
 void add_checkerboard(void)
 {
    int x, y;
-   ALLEGRO_COLOR c1 = al_color_name("yellow");
-   ALLEGRO_COLOR c2 = al_color_name("green");
+   ALLEGRO_COLOR c1 = al_color_name("white");
+   ALLEGRO_COLOR c2 = al_color_name("black");
 
    for (y = 0; y < 20; y++) {
       for (x = 0; x < 20; x++) {
@@ -231,8 +237,8 @@ void add_checkerboard(void)
             py -= 0.1;
          }
          add_quad(px, py, pz, 0, 0,
-            1, 0, 0, 424, 0,
-            0, 0, 1, 0, 424,
+            1, 0, 0, 512, 0,
+            0, 0, 1, 0, 512,
             c, c);
       }
    }
@@ -289,7 +295,19 @@ void run_main_loop() {
 
     model = ch_model_load("assets/teapot.obj", ALLEGRO_PRIM_BUFFER_STATIC);
     //ch_model_init_cube(&model, 40, 0, 0, 0);
-    test_texture = al_load_bitmap("assets/plank.jpeg");
+    al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP | ALLEGRO_NO_PRESERVE_TEXTURE | ALLEGRO_MIN_LINEAR | ALLEGRO_MAG_LINEAR);
+    test_texture = al_create_bitmap(512, 512);
+    al_set_target_bitmap(test_texture);
+    al_clear_to_color(al_map_rgb(255,255,255));
+    al_set_target_backbuffer(display);
+    
+    // al_load_bitmap("assets/plank.jpeg");
+    /*
+    al_create_bitmap(512, 512);
+    al_set_target_bitmap(test_texture);
+    al_clear_to_color(al_map_rgb(255,255,255));
+    al_set_target_backbuffer(display);
+    */
     if (test_texture) {
         //model.texture = test_texture;
     } else {
@@ -297,8 +315,8 @@ void run_main_loop() {
     }
 
     add_quad(0, 0, 0, 0, 0, 
-        0, 0, 3, 1, 0,
-        3, 0, 0, 0, 1,
+        0, 0, 3, 512, 0,
+        3, 0, 0, 0, 512,
         al_map_rgb(255, 0, 0), al_map_rgb(0, 0, 255));
     add_quad(0, 3, 0, 0, 0, 
         0, 0, 3, 1, 0,
