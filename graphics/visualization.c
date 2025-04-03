@@ -67,15 +67,19 @@ void draw_waveforms(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ch_vis_bu
     float height = 512;//al_get_bitmap_width(texture);
 
     al_set_target_bitmap(texture);
+    al_hold_bitmap_drawing(true);
     al_clear_to_color(al_map_rgba_f(1, 1, 1, 0));
 
+    /*
     for (int i = 0; i < 1024; i++) {
         al_draw_filled_circle((float)i*width / 1024.0, (height / 2.0) + (vb->left_waveform[i] * 100), 4, al_color_hsv(i % 360, 1, 1));
     }
+    */
     al_draw_circle(width / 2.0, height / 2.0, 50, al_map_rgb(255, 0, 255), 2);
-    //for (int i = 0; i < 512; i++) {
-        //al_draw_line((float)i / width, (height / 2) + (vb->left_waveform[i*2] * 10), (float)(i*2+1) / width, (height / 2) + (vb->left_waveform[i*2+1] * 10), al_color_hsv(i % 360, 1, 1), 1.5);
-    //}
+    for (int i = 0; i < 1023; i++) {
+        al_draw_line((float)i*width / 1024.0, (height / 2) + (vb->left_waveform[i] * 50), (float)(i+1)*width / 1024.0, (height / 2) + (vb->left_waveform[i+1] * 50), al_color_hsv(i % 360, 1, 1), 2);
+    }
+    al_hold_bitmap_drawing(false);
 
     al_set_target_backbuffer(display);
 }
@@ -95,5 +99,25 @@ void draw_frequency_bins(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ch_v
         al_draw_filled_rectangle(i*w, (height / 2) - h, i*w + w, (height / 2) + h, al_color_hsv(i % 360, 1, 1));
     }
 
+    al_set_target_backbuffer(display);
+}
+
+void draw_song_status(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ALLEGRO_FONT *font, ch_song *song) {
+    if (!song) return;
+    
+    float width = al_get_bitmap_width(texture);
+    float height = al_get_bitmap_height(texture);
+    int lh = al_get_font_line_height(font);
+
+    al_set_target_bitmap(texture);
+    al_clear_to_color(al_map_rgb(0, 255, 0));
+    al_hold_bitmap_drawing(true);
+
+    al_draw_text(font, al_map_rgb(0, 0, 0), 5, lh * 0, ALLEGRO_ALIGN_LEFT, "Currently Playing");
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 5, lh * 1, ALLEGRO_ALIGN_LEFT, "Song:   %s", song->metadata.title);
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 5, lh * 2, ALLEGRO_ALIGN_LEFT, "Artist: %s", song->metadata.artist);
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 5, lh * 3, ALLEGRO_ALIGN_LEFT, "Album:  %s", song->metadata.album);
+
+    al_hold_bitmap_drawing(false);
     al_set_target_backbuffer(display);
 }

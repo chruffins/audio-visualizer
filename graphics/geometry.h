@@ -27,6 +27,6 @@ void ch_model_init(ch_model* model, ALLEGRO_VERTEX* init_vertices, int* index_bu
 void ch_model_draw(ch_model* model);
 void ch_model_free(ch_model* model); // free resources
 
-void ch_model_init_cube(ch_model* model, double lwh, double x, double y, double z);
+void ch_model_init_cube(ch_model* model, ALLEGRO_BITMAP* texture, double lwh, double x, double y, double z);
 
 ch_model ch_model_load(char* obj_filename, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags);

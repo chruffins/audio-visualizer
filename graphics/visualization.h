@@ -2,12 +2,15 @@
 #include<allegro5/allegro.h>
 #include<allegro5/allegro_primitives.h>
 #include<allegro5/allegro_color.h>
+#include<allegro5/allegro_font.h>
 
 #include<fftw3.h>
 
 #include<stdlib.h>
 #include<complex.h>
 #include<math.h>
+
+#include "../music/song.h"
 
 #define FFT_BUFFER_SIZE 8192
 #define FFT_OUTPUT_SIZE (FFT_BUFFER_SIZE / 2) + 1
@@ -51,3 +54,4 @@ double A_weighting(double freq);
 
 void draw_waveforms(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ch_vis_buffer* vb);
 void draw_frequency_bins(ALLEGRO_DISPLAY* display, ALLEGRO_BITMAP* texture, ch_vis_buffer* vis_buffer);
+void draw_song_status(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP* texture, ALLEGRO_FONT* font, ch_song* song);
