@@ -39,12 +39,12 @@ static const int height = 1080;
 static ALLEGRO_DISPLAY* display;
 
 static ch_vis_buffer *vb;
-static float waveform_buffer[SAMPLES] = { 0 };
-static float waveform[SAMPLES] = { 0 };
-static ALLEGRO_VERTEX waveform_visual_buffer[SAMPLES] = { 0 };
 
+static ch_song* song;
 static ch_model model;
+static ch_model info_cube;
 static ALLEGRO_BITMAP* test_texture;
+static ALLEGRO_BITMAP* info_cube_texture;
 static ALLEGRO_VERTEX triangles[3*1000] = { 0 };
 static int triangles_n = 0;
 
@@ -116,7 +116,7 @@ void do_inits() {
 }
 
 void update_buffer(void* buf, unsigned int samples, void* data) {
-    static int pos = 0;
+    //static int pos = 0;
     float* fbuf = (float*)buf;
 
     // assume stereo i.e. 2 channels
@@ -131,7 +131,7 @@ void update_buffer(void* buf, unsigned int samples, void* data) {
         }
     }
     */
-   //ch_vis_buffer_do_fft(vb);
+   ch_vis_buffer_do_fft(vb);
 }
 
 void handle_input() {
@@ -196,9 +196,9 @@ void draw_scene() {
 
     build_and_use_camera_transform(&cam);
 
-    al_draw_prim(waveform_visual_buffer, NULL, NULL, 0, SAMPLES, ALLEGRO_PRIM_LINE_LIST);
     al_draw_prim(triangles, NULL, test_texture, 0, triangles_n, ALLEGRO_PRIM_TRIANGLE_LIST);
     ch_model_draw(&model);
+    ch_model_draw(&info_cube);
 
     // back to 2d we go
     al_use_transform(&identity_transform);
@@ -215,7 +215,8 @@ void draw_scene() {
     roll = camera_get_roll(&cam) * 180 / PI;
     al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 2, 0, "pitch: %+4.0f, yaw: %+4.0f, roll: %+4.0f", pitch, yaw, roll);
     al_hold_bitmap_drawing(false);
-    draw_waveforms(display, test_texture, vb);
+    draw_frequency_bins(display, test_texture, vb);
+    draw_song_status(display, info_cube_texture, def, song);
 
     al_flip_display();
 }
@@ -282,7 +283,7 @@ void run_main_loop() {
     
     // const vector2 center = { width / 2, height / 2 };
     // TODO: actually make something for rendering geometry
-    ch_song* song;
+    song = ch_song_load(filename);
 
     al_register_event_source(queue, al_get_mouse_event_source());
     al_register_event_source(queue, al_get_keyboard_event_source());
@@ -292,14 +293,16 @@ void run_main_loop() {
     al_register_event_source(queue, al_get_audio_stream_event_source(stream));
 
     al_start_timer(timer);
-
-    model = ch_model_load("assets/teapot.obj", ALLEGRO_PRIM_BUFFER_STATIC);
-    //ch_model_init_cube(&model, 40, 0, 0, 0);
     al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP | ALLEGRO_NO_PRESERVE_TEXTURE | ALLEGRO_MIN_LINEAR | ALLEGRO_MAG_LINEAR);
     test_texture = al_create_bitmap(512, 512);
+    info_cube_texture = al_create_bitmap(512, 512);
     al_set_target_bitmap(test_texture);
     al_clear_to_color(al_map_rgb(255,255,255));
     al_set_target_backbuffer(display);
+
+    model = ch_model_load("assets/teapot.obj", ALLEGRO_PRIM_BUFFER_STATIC);
+    ch_model_init_cube(&info_cube, info_cube_texture, 5, 0, 5, 0);
+    //ch_model_init_cube(&model, 40, 0, 0, 0);
     
     // al_load_bitmap("assets/plank.jpeg");
     /*
@@ -371,8 +374,6 @@ void run_main_loop() {
 
                 // particles[particles_ptr] = particle_create_params(vector2_new((i*((double)width / SAMPLES)), (center.y / 2.0) + (waveform[i] * 250)), vector2_new(0,0), 
                 // vector2_new(0,0), al_map_rgb(0, 255, 0), 2);
-
-                waveform_visual_buffer[i] = (ALLEGRO_VERTEX){ .x = i / 300.0, .y = 10, .z = waveform[i] * 1, .color = al_map_rgb(255, 0, 0)};
             }
 
             for (int i = 0; i < PARTICLE_LIMIT; i++) {
@@ -401,6 +402,8 @@ void run_main_loop() {
                     al_destroy_audio_stream(stream);
                     stream = al_load_audio_stream(filepath, 4, 4096);
                     if (stream) {
+                        song = ch_song_load(filepath);
+                        al_register_event_source(queue, al_get_audio_stream_event_source(stream));
                         al_attach_audio_stream_to_mixer(stream, mixer);
                         //song = ch_song_create(filepath);
                         //ch_song_print(song);

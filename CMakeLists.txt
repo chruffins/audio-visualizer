@@ -23,7 +23,7 @@ find_library(AL_FONT allegro_font)
 find_library(AL_AUDIO allegro_audio)
 find_library(AL_ACODEC allegro_acodec)
 find_library(AL_PRIMITIVES allegro_primitives)
-find_library(AL_DIALOG allegro_dialog REQUIRED)
+find_library(AL_DIALOG allegro_dialog)
 find_library(AL_IMAGE allegro_image)
 find_library(AL_COLOR allegro_color)
 find_library(MATH m)
@@ -31,6 +31,6 @@ find_library(FFTW3 fftw3)
 find_library(FFTW3FLOAT fftw3f)
 
 target_link_libraries(audiovis m fftw3 fftw3f allegro allegro_font allegro_ttf allegro_audio 
-    allegro_acodec allegro_primitives allegro_color ${AL_DIALOG} allegro_image
+    allegro_acodec allegro_primitives allegro_color allegro_dialog allegro_image
     tag_c-2
     sqlite3)
