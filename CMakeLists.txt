@@ -9,7 +9,8 @@ file(GLOB_RECURSE SOURCES *.c)
 
 add_executable(audiovis main.c menu.c 
 graphics/particle.c graphics/vector.c graphics/font.c graphics/camera.c graphics/geometry.c graphics/obj_parser.c graphics/visualization.c
-music/song.c music/album.c music/database.c music/audio_parser.c)
+music/song.c music/album.c music/database.c music/audio_parser.c music/play_queue.c music/playlist.c
+util/queue.c)
 
 target_compile_options(audiovis PRIVATE -O3 -Wall -g -ftree-vectorize)
 #target_compile_options(chrus_engine -g)
