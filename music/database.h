@@ -4,6 +4,10 @@
 #include<stdio.h>
 #include<string.h>
 
+#include "album.h"
+#include "playlist.h"
+#include "song.h"
+
 #define INIT_SQL "CREATE TABLE IF NOT EXISTS songs (" \
     "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
     "song_path TEXT NOT NULL UNIQUE, "\
@@ -89,6 +93,26 @@ int add_song_artist(sqlite3* db, int song_id, int artist_id);
 int add_album_artist(sqlite3* db, int album_id, int artist_id);
 int add_song_genre(sqlite3* db, int song_id, int genre_id);
 int add_playlist_song(sqlite3* db, int playlist_id, int song_id, int position);
+
+//ch_genre* get_genre_from_stmt(sqlite3_stmt* stmt);
+//ch_artist* get_artist_from_stmt(sqlite3_stmt* stmt);
+
+/* ASSUMED: SQLITE_ROW, COLUMNS (id, name, picture_path, desc), DOES NOT CONSUME */
+ch_playlist* get_playlist_from_stmt(sqlite3_stmt* stmt);
+
+size_t count_songs_in_playlist(sqlite3* db, int playlist_id);
+
+/* ASSUMED: SQLITE_ROW, COLUMNS (id, name, picture_path, desc) */
+ch_album* get_album_from_stmt(sqlite3_stmt* stmt);
+
+/* ASSUMED: SQLITE_ROW, COLUMNS (id, name, picture_path, desc) */
+ch_song* get_song_from_stmt(sqlite3_stmt* stmt);
+
+//ch_genre* get_genre_by_id(sqlite3* db, int id);
+//ch_artist* get_artist_by_id(sqlite3* db, int id);
+ch_playlist* get_playlist_by_id(sqlite3* db, int id);
+ch_album* get_album_by_id(sqlite3* db, int id);
+ch_song* get_song_by_id(sqlite3* db, int id);
 
 int get_genre_by_name(sqlite3* db, const char* name);
 int get_artist_id_by_name(sqlite3* db, const char* name);

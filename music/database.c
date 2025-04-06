@@ -296,3 +296,108 @@ int get_artist_id_by_name(sqlite3 *db, const char *name) {
         return -1;
     }
 }
+
+ch_playlist* get_playlist_from_stmt(sqlite3_stmt* stmt) {
+    int id = sqlite3_column_int(stmt, 0);
+    const char* name = strdup((const char*)sqlite3_column_text(stmt, 1));
+    const char* picture_path = strdup((const char*)sqlite3_column_text(stmt, 2));
+    const char* description = strdup((const char*)sqlite3_column_text(stmt, 3));
+    ch_playlist* playlist = ch_playlist_create(name, picture_path, description);
+    playlist->id = id;
+
+    return playlist;
+}
+
+size_t count_songs_in_playlist(sqlite3* db, int playlist_id) {
+    static const char* sql = "SELECT COUNT(*) FROM playlist_songs WHERE playlist_id = ?";
+
+    sqlite3_stmt *stmt;
+    size_t count = 0;
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        fprintf(stderr, "playlist song count failed: %s\n", sqlite3_errmsg(db));
+        return 0;
+    }
+
+    sqlite3_bind_int(stmt, 1, playlist_id);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        count = sqlite3_column_int(stmt, 0);
+    }
+
+    sqlite3_finalize(stmt);
+    return count;
+}
+
+ch_playlist* get_playlist_by_id(sqlite3* db, int id) {
+    static const char* playlist_sql = "SELECT id, name, picture_path, desc FROM playlists WHERE id = ?";
+    static const char* playlist_song_sql = "SELECT songs.id, songs.song_path, songs.title, songs.album_id, songs.track, songs.comment, songs.duration"
+        "FROM playlist_songs JOIN songs ON playlist_songs.song_id = songs.id WHERE playlist_songs.playlist_id = ?";
+    sqlite3_stmt* stmt;
+    ch_playlist* playlist;
+
+    int rc = sqlite3_prepare_v2(db, playlist_sql, -1, &stmt, NULL);
+
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "failed to prepare get artist by name statement: %s\n", sqlite3_errmsg(db));
+        return rc;
+    }
+
+    sqlite3_bind_int(db, 1, id);
+
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_DONE) {
+        fprintf(stderr, "searched for playlist id %d which does not exist in db!\n", id);
+        sqlite3_finalize(stmt);
+        return NULL;
+    } else if (rc != SQLITE_ROW) {
+        fprintf(stderr, "failed to execute get playlist by id statement: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        return NULL;
+    }
+
+    // we have a row, pull out the information now
+    playlist = get_playlist_from_stmt(stmt);
+    // now we can just finalize this stmt, right?
+    sqlite3_finalize(stmt);
+
+    // now we need to grab the songs
+    size_t num_songs = count_songs_in_playlist(db, id); // independent statement stuff goes inside here
+    ch_song_vec_reserve(&playlist->songs, num_songs+1);
+
+    int rc = sqlite3_prepare_v2(db, playlist_song_sql, -1, &stmt, NULL);
+
+
+
+    sqlite3_finalize(stmt);
+    return playlist;
+}
+
+ch_album* get_album_by_id(sqlite3* db, int id) {
+
+}
+
+ch_song* get_song_from_stmt(sqlite3_stmt* stmt) {
+    // songs.id, songs.song_path, songs.title, songs.album_id, songs.track, songs.comment, songs.duration
+    ch_song* s = malloc(sizeof(ch_song));
+    if (!s) {
+        fprintf(stderr, "exited during get_song_from_stmt because of failed malloc\n");
+        exit(1);
+        //return NULL;
+    }
+
+    s->id = sqlite3_column_int(stmt, 0);
+    s->filename = strdup(sqlite3_column_text(stmt, 1));
+    s->metadata = ch_metadata_create();
+    
+    s->metadata.title = strdup(sqlite3_column_text(stmt, 2));
+    // need to do something about album id...........
+    s->metadata.track = sqlite3_column_int(stmt, 4);
+    s->metadata.comment = strdup(sqlite3_column_text(stmt, 5));
+    s->metadata.duration = sqlite3_column_int(stmt, 6);
+
+    return s;
+}
+
+ch_song* get_song_by_id(sqlite3* db, int id) {
+
+}
