@@ -19,7 +19,7 @@ do { \
         (vec).capacity = (vec).capacity == 0 ? 1 : (vec).capacity * 2; \
         (vec).data = realloc((vec).data, (vec).capacity * sizeof(TYPE)); \
         if (!(vec).data) { \
-            fprintf(stderr, "Memory allocation failed\n"); \
+            fprintf(stderr, "vector push realloc failed\n"); \
             exit(1); \
         } \
     } \
@@ -30,7 +30,17 @@ do { \
 ((vec).size > 0 ? (vec).data[--(vec).size] : (TYPE){0})
 
 #define VECTOR_AT(vec, index) \
-((vec).data[(index)])
+(index < (vec).size ? (vec).data[(index)] : NULL)
+
+#define VECTOR_RESERVE(TYPE, vec, capacity) \
+do { \
+    (vec).capacity = (vec).capacity < capacity ? capacity : (vec).capacity; \
+    (vec).data = (vec).data == NULL ? calloc(capacity, sizeof(TYPE)) : realloc((vec).data, (vec).capacity * sizeof(TYPE)); \
+    if (!(vec).data) { \
+        fprintf(stderr, "vector reserve allocation failed\n"); \
+        exit(1); \
+    } \
+} while (0)
 
 #define VECTOR_FREE(vec) \
 do { \

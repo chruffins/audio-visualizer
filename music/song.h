@@ -30,6 +30,8 @@ struct ch_metadata {
 };
 
 struct ch_song {
+    int id;
+    int order; // this is used for sorting by order for albums and playlists...
     char* filename;
     ch_metadata metadata;
 };
@@ -50,6 +52,10 @@ inline ch_song* ch_song_vec_at(ch_song_vec *vec, size_t index) {
 
 inline void ch_song_vec_push(ch_song_vec *vec, ch_song *song) {
     VECTOR_PUSH(ch_song*, *vec, song);
+}
+
+inline void ch_song_vec_reserve(ch_song_vec *vec, size_t capacity) {
+    VECTOR_RESERVE(ch_song*, *vec, capacity);
 }
 
 inline void ch_song_vec_free(ch_song_vec *vec) {
