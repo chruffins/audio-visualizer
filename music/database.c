@@ -3,6 +3,47 @@
 static int execute_sql(sqlite3* db, const char* sql);
 static int add_to_junction_table(sqlite3* db, const char* table_name, const char* col1, const char* col2, int id1, int id2);
 static int get_last_position_in_playlist(sqlite3* db, int playlist_id);
+static int get_row_count(sqlite3* db, const char* table_name);
+
+int get_row_count(sqlite3* db, const char* table_name) {
+    if (db == NULL || table_name == NULL) {
+        fprintf(stderr, "get_row_count: database or table name is null!\n");
+        return -1;
+    }
+
+    char count_sql[256];
+    int rc = snprintf(count_sql, sizeof(count_sql), "SELECT COUNT(*) FROM %s;", table_name);
+    if (rc < 0 || rc >= sizeof(count_sql)) {
+        fprintf(stderr, "get_row_count: SQL statement too long\n");
+        return -1;
+    }
+
+    sqlite3_stmt* stmt = NULL;
+    int row_count = -1;
+
+    // Prepare the SQL statement
+    rc = sqlite3_prepare_v2(db, count_sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
+        goto cleanup;
+    }
+
+    // Execute the statement
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+        fprintf(stderr, "Error executing statement: %s\n", sqlite3_errmsg(db));
+        goto cleanup;
+    }
+
+    // Get the result (first column)
+    row_count = sqlite3_column_int(stmt, 0);
+
+cleanup:
+    if (stmt != NULL) {
+        sqlite3_finalize(stmt);
+    }
+    return row_count;
+}
 
 /* don't use this for ANYTHING parameterized */
 static int execute_sql(sqlite3* db, const char* sql) {
@@ -95,7 +136,7 @@ int init_database(sqlite3* db) {
 
 int add_genre(sqlite3 *db, const char *name) {
     sqlite3_stmt* stmt;
-    const char* sql = "INSERT INTO genres (name) VALUES (?)";
+    const char* sql = "INSERT INTO genres (name) VALUES (?) ON CONFLICT(name) DO UPDATE SET name=name RETURNING id";
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
 
     if (rc != SQLITE_OK) {
@@ -105,15 +146,18 @@ int add_genre(sqlite3 *db, const char *name) {
 
     sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
 
+    int row_id = -1;
     rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
-        fprintf(stderr, "failed to execute genre statement: %s\n", sqlite3_errmsg(db));
+    if (rc == SQLITE_ROW) {
+        row_id = sqlite3_column_int(stmt, 0);
+    } else {
+        fprintf(stderr, "failed to execute artist statement: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return -1;
     }
 
     sqlite3_finalize(stmt);
-    return sqlite3_last_insert_rowid(db);
+    return row_id;
 }
 
 int add_playlist(sqlite3 *db, const char *name, const char *picture_path, const char *description) {
@@ -143,7 +187,7 @@ int add_playlist(sqlite3 *db, const char *name, const char *picture_path, const 
 
 int add_artist(sqlite3 *db, const char *name, const char *picture_path, const char *description) {
     sqlite3_stmt* stmt;
-    const char* sql = "INSERT INTO artists (name, picture_path, desc) VALUES (?, ?, ?)";
+    const char* sql = "INSERT INTO artists (name, picture_path, desc) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET name=name RETURNING id;";
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
 
     if (rc != SQLITE_OK) {
@@ -155,15 +199,18 @@ int add_artist(sqlite3 *db, const char *name, const char *picture_path, const ch
     sqlite3_bind_text(stmt, 2, picture_path, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 3, description, -1, SQLITE_STATIC);
 
+    int row_id = -1;
     rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
+    if (rc == SQLITE_ROW) {
+        row_id = sqlite3_column_int(stmt, 0);
+    } else {
         fprintf(stderr, "failed to execute artist statement: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
         return -1;
     }
 
     sqlite3_finalize(stmt);
-    return sqlite3_last_insert_rowid(db);
+    return row_id;
 }
 
 int add_album(sqlite3 *db, const char *name, int year, const char *picture_path)
@@ -269,6 +316,7 @@ int add_playlist_song(sqlite3* db, int playlist_id, int song_id, int position) {
     return position;
 }
 
+// returns artist id if exists, returns -2 if there's nothing
 int get_artist_id_by_name(sqlite3 *db, const char *name) {
     static const char* sql = "SELECT id FROM artists WHERE name = ?";
     sqlite3_stmt* stmt;
@@ -289,7 +337,7 @@ int get_artist_id_by_name(sqlite3 *db, const char *name) {
         return artist_id;
     } else if (rc == SQLITE_DONE) {
         sqlite3_finalize(stmt);
-        return -1;
+        return -2;
     } else {
         fprintf(stderr, "failed to execute get artist by name statement: %s\n", sqlite3_errmsg(db));
         sqlite3_finalize(stmt);
@@ -306,6 +354,14 @@ ch_playlist* get_playlist_from_stmt(sqlite3_stmt* stmt) {
     playlist->id = id;
 
     return playlist;
+}
+
+void get_album_from_stmt(sqlite3_stmt* stmt, ch_album* album) {
+    album->id = sqlite3_column_int(stmt, 0);
+    album->title = strdup((const char*)sqlite3_column_text(stmt, 1));
+    album->year = sqlite3_column_int(stmt, 2);
+    album->picture_path = strdup((const char*)sqlite3_column_text(stmt, 3));
+    album->artist_id = sqlite3_column_int(stmt, 4);
 }
 
 size_t count_songs_in_playlist(sqlite3* db, int playlist_id) {
@@ -366,8 +422,6 @@ ch_playlist* get_playlist_by_id(sqlite3* db, int id) {
 
     int rc = sqlite3_prepare_v2(db, playlist_song_sql, -1, &stmt, NULL);
 
-
-
     sqlite3_finalize(stmt);
     return playlist;
 }
@@ -387,15 +441,22 @@ ch_song* get_song_from_stmt(sqlite3_stmt* stmt) {
 
     s->id = sqlite3_column_int(stmt, 0);
     s->filename = strdup(sqlite3_column_text(stmt, 1));
-    s->metadata = ch_metadata_create();
     
-    s->metadata.title = strdup(sqlite3_column_text(stmt, 2));
+    s->title = strdup(sqlite3_column_text(stmt, 2));
     // need to do something about album id...........
-    s->metadata.track = sqlite3_column_int(stmt, 4);
-    s->metadata.comment = strdup(sqlite3_column_text(stmt, 5));
-    s->metadata.duration = sqlite3_column_int(stmt, 6);
+    s->album_id = sqlite3_column_int(stmt, 3);
+    s->track = sqlite3_column_int(stmt, 4);
+    s->comment = strdup(sqlite3_column_text(stmt, 5));
+    s->duration = sqlite3_column_int(stmt, 6);
 
     return s;
+}
+
+ch_album_vec get_albums(sqlite3 *db) {
+    const char* album_sql = "SELECT id, name, year, picture_path FROM albums";
+
+    int num_albums = get_row_count(db, "albums");
+
 }
 
 ch_song* get_song_by_id(sqlite3* db, int id) {

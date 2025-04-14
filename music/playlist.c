@@ -11,9 +11,11 @@ ch_playlist* ch_playlist_create(const char* name, const char* thumbnail_path, co
     new_playlist->songs = ch_song_vec_init();
 }
 
+/*
 ch_playlist* ch_playlist_load(sqlite3* db, int id) {
 
 }
+*/
 
 int ch_playlist_add_song(ch_playlist* playlist, ch_song* song) {
     ch_song_vec_push(&playlist->songs, song);
@@ -21,6 +23,7 @@ int ch_playlist_add_song(ch_playlist* playlist, ch_song* song) {
     return 0; // yeah hmm uhh
 }
 
+/*
 int ch_playlist_save(sqlite3* db, ch_playlist* playlist) {
     // wait... we can separate playlist saves here because of how they um...
     int is_preexisting = playlist->id < 0 ? 1 : 0;
@@ -38,6 +41,7 @@ int ch_playlist_save(sqlite3* db, ch_playlist* playlist) {
     }
     return 0;
 }
+*/
 
 ALLEGRO_BITMAP* ch_playlist_get_thumbnail(ch_playlist* playlist) {
     if (playlist->thumbnail) {

@@ -20,7 +20,7 @@
     \
     "CREATE TABLE IF NOT EXISTS artists (" \
     "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
-    "name TEXT NOT NULL, " \
+    "name TEXT NOT NULL UNIQUE, " \
     "picture_path TEXT, " \
     "desc TEXT);" \
     \
@@ -29,7 +29,9 @@
     "release_type INTEGER DEFAULT 1, " \
     "name TEXT NOT NULL, " \
     "year INTEGER, " \
-    "picture_path TEXT);" \
+    "picture_path TEXT, " \
+    "artist_id INTEGER, " \
+    "FOREIGN KEY(artist_id) REFERENCES artists(id) ON DELETE CASCADE);" \
     \
     "CREATE TABLE IF NOT EXISTS genres(" \
     "id INTEGER PRIMARY KEY AUTOINCREMENT, " \
@@ -54,14 +56,6 @@
     "FOREIGN KEY(song_id) REFERENCES songs(id) ON DELETE CASCADE, " \
     "FOREIGN KEY(artist_id) REFERENCES artists(id) ON DELETE CASCADE, " \
     "PRIMARY KEY(song_id, artist_id)" \
-    ");" \
-    \
-    "CREATE TABLE IF NOT EXISTS album_artists(" \
-    "album_id INTEGER NOT NULL, " \
-    "artist_id INTEGER NOT NULL, " \
-    "FOREIGN KEY(album_id) REFERENCES albums(id) ON DELETE CASCADE, " \
-    "FOREIGN KEY(artist_id) REFERENCES artists(id) ON DELETE CASCADE, " \
-    "PRIMARY KEY(album_id, artist_id)" \
     ");" \
     \
     "CREATE TABLE IF NOT EXISTS song_genres (" \
@@ -90,7 +84,7 @@ int add_album(sqlite3* db, const char* album_name, int artist_id, const char* pi
 int add_song(sqlite3* db, const char* song_path, const char* title, int album_id, int track, const char* comment, int duration);
 
 int add_song_artist(sqlite3* db, int song_id, int artist_id);
-int add_album_artist(sqlite3* db, int album_id, int artist_id);
+//int add_album_artist(sqlite3* db, int album_id, int artist_id);
 int add_song_genre(sqlite3* db, int song_id, int genre_id);
 int add_playlist_song(sqlite3* db, int playlist_id, int song_id, int position);
 
@@ -103,10 +97,12 @@ ch_playlist* get_playlist_from_stmt(sqlite3_stmt* stmt);
 size_t count_songs_in_playlist(sqlite3* db, int playlist_id);
 
 /* ASSUMED: SQLITE_ROW, COLUMNS (id, name, picture_path, desc) */
-ch_album* get_album_from_stmt(sqlite3_stmt* stmt);
+void get_album_from_stmt(sqlite3_stmt* stmt, ch_album* album);
 
 /* ASSUMED: SQLITE_ROW, COLUMNS (id, name, picture_path, desc) */
 ch_song* get_song_from_stmt(sqlite3_stmt* stmt);
+
+ch_album_vec get_albums(sqlite3* db);
 
 //ch_genre* get_genre_by_id(sqlite3* db, int id);
 //ch_artist* get_artist_by_id(sqlite3* db, int id);

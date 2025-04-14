@@ -1,7 +1,7 @@
 #pragma once
 #define DEF_VECTOR(TYPE) \
 typedef struct { \
-    TYPE** data; \
+    TYPE* data; \
     size_t size; \
     size_t capacity; \
 } TYPE##_vec;
@@ -30,7 +30,7 @@ do { \
 ((vec).size > 0 ? (vec).data[--(vec).size] : (TYPE){0})
 
 #define VECTOR_AT(vec, index) \
-(index < (vec).size ? (vec).data[(index)] : NULL)
+(index < (vec).size ? &(vec).data[(index)] : NULL)
 
 #define VECTOR_RESERVE(TYPE, vec, capacity) \
 do { \
@@ -44,7 +44,7 @@ do { \
 
 #define VECTOR_FREE(vec) \
 do { \
-    for (int i = 0; i < (vec).size; i++) free((vec).data[i]);\
+    /*for (int i = 0; i < (vec).size; i++) free((vec).data[i]);*/\
     free((vec).data); \
     (vec).data = NULL; \
     (vec).size = 0; \

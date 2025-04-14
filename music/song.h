@@ -11,6 +11,7 @@ typedef struct ch_song ch_song;
 DEF_VECTOR(ch_song)
 
 struct ch_metadata {
+    const char *filepath;
     const char *title;
     const char *artist;
     const char *album;
@@ -31,14 +32,17 @@ struct ch_metadata {
 
 struct ch_song {
     int id;
-    int order; // this is used for sorting by order for albums and playlists...
-    char* filename;
-    ch_metadata metadata;
+    const char *filename;
+    const char *title;
+    int album_id;
+    int track;
+    const char *comment;
+    int duration;
+    //ch_metadata metadata;
 };
 
 ch_metadata ch_metadata_create();
-
-ch_song* ch_song_load(const char* filename);
+int ch_metadata_populate(ch_metadata* md, char* filename);
 
 inline ch_song_vec ch_song_vec_init() {
     ch_song_vec vec;
@@ -50,12 +54,12 @@ inline ch_song* ch_song_vec_at(ch_song_vec *vec, size_t index) {
     return VECTOR_AT(*vec, index);
 }
 
-inline void ch_song_vec_push(ch_song_vec *vec, ch_song *song) {
-    VECTOR_PUSH(ch_song*, *vec, song);
+inline void ch_song_vec_push(ch_song_vec *vec, ch_song song) {
+    VECTOR_PUSH(ch_song, *vec, song);
 }
 
 inline void ch_song_vec_reserve(ch_song_vec *vec, size_t capacity) {
-    VECTOR_RESERVE(ch_song*, *vec, capacity);
+    VECTOR_RESERVE(ch_song, *vec, capacity);
 }
 
 inline void ch_song_vec_free(ch_song_vec *vec) {

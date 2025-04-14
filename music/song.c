@@ -66,6 +66,7 @@ void ch_metadata_print(ch_metadata* md) {
     printf("Title: %s\n", safe_str(md->title));
     printf("Artist: %s\n", safe_str(md->artist));
     printf("Album: %s\n", safe_str(md->album));
+    printf("Album Artist: %s\n", safe_str(md->album_artist));
     printf("Genre: %s\n", safe_str(md->genre));
     printf("Year: %u\n", md->year);
     printf("Track: %u\n", md->track);
@@ -77,31 +78,22 @@ void ch_metadata_print(ch_metadata* md) {
 void ch_song_print(ch_song* song) {
     printf("Song\n");
     printf("Filename: %s\n", safe_str(song->filename));
-    ch_metadata_print(&song->metadata);
+    printf("Title: %s\n", safe_str(song->title));
+    printf("Album ID: %d\n", song->album_id);
+    printf("Track No. %d\n", song->album_id);
+    printf("Comment: %s\n", safe_str(song->comment));
+    printf("Duration: %d\n", song->duration);
 }
 
-ch_song* ch_song_load(const char *filename) {
-    ch_song* s = malloc(sizeof(ch_song));
-    if (!s) {
-        return NULL;
-    }
 
-    s->filename = strdup(filename);
-    s->metadata = ch_metadata_create();
-    if (filename) {
-        ch_metadata_populate(&s->metadata, filename);
-    }
-
-    return s;
-}
 
 int ch_song_track_comparator(const void* va, const void* vb) {
     const ch_song* a = *(ch_song**)va;
     const ch_song* b = *(ch_song**)vb;
 
-    if (a->metadata.track < b->metadata.track) {
+    if (a->track < b->track) {
         return -1;
-    } else if (a->metadata.track > b->metadata.track) {
+    } else if (a->track > b->track) {
         return 1;
     } else {
         return 0;
