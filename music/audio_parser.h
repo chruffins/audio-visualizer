@@ -2,6 +2,7 @@
 #include<sqlite3.h>
 #include<taglib-2/tag_c.h>
 #include<allegro5/allegro.h>
+#include<allegro5/allegro_audio.h>
 
 #include<stdio.h>
 #include<stdlib.h>
@@ -15,6 +16,6 @@
 bool is_audio_file(const char* fpath);
 bool is_image_file(const char* ipath);
 
-int import_music_from_file(sqlite3* db, const char* file_path);
+int print_music_files(sqlite3* db, const char* root_dir_path);
 int import_album_from_folder(sqlite3* db, const char* dir_path);
 int import_music_from_folder_recursive(sqlite3* db, const char* dir_path);

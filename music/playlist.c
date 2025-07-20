@@ -8,7 +8,7 @@ ch_playlist* ch_playlist_create(const char* name, const char* thumbnail_path, co
     new_playlist->name = name;
     new_playlist->picture_path = thumbnail_path;
     new_playlist->description = description;
-    new_playlist->songs = ch_song_vec_init();
+    //new_playlist->songs = ch_song_vec_init();
 }
 
 /*
@@ -18,7 +18,7 @@ ch_playlist* ch_playlist_load(sqlite3* db, int id) {
 */
 
 int ch_playlist_add_song(ch_playlist* playlist, ch_song* song) {
-    ch_song_vec_push(&playlist->songs, song);
+    //ch_song_vec_push(&playlist->songs, song);
 
     return 0; // yeah hmm uhh
 }
@@ -66,6 +66,7 @@ void ch_playlist_print(ch_playlist* playlist, int print_songs) {
     printf("Playlist: %s", playlist->name ? playlist->name : "(empty)");
     printf("Thumbnail: %s", playlist->picture_path ? playlist->picture_path : "(empty)");
     printf("Description: %s", playlist->description ? playlist->description : "(empty)");
+    /*
     printf("# of Songs: %d", playlist->songs.size);
 
     if (print_songs) {
@@ -73,4 +74,5 @@ void ch_playlist_print(ch_playlist* playlist, int print_songs) {
             printf("Song %d: %s", i, playlist->songs.data[i]->metadata.title);
         }
     }
+    */
 }

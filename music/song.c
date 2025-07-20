@@ -85,8 +85,6 @@ void ch_song_print(ch_song* song) {
     printf("Duration: %d\n", song->duration);
 }
 
-
-
 int ch_song_track_comparator(const void* va, const void* vb) {
     const ch_song* a = *(ch_song**)va;
     const ch_song* b = *(ch_song**)vb;

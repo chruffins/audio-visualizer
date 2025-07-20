@@ -1,6 +1,6 @@
 #include "visualization.h"
 
-void ch_vis_buffer_add_samples(ch_vis_buffer *vb, const float *samples) {
+void ch_vis_buffer_add_samples(ch_vis_buffer* restrict vb, const float* restrict samples) {
     size_t pos = vb->write_pos;
     
     for (int i = 0; i < 1024; i++) {
@@ -62,7 +62,7 @@ double A_weighting(double freq) {
     return 20.0 * log10(num / den) + 2.0;
 }
 
-void draw_waveforms(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ch_vis_buffer* vb) {
+void draw_waveforms(ALLEGRO_DISPLAY *restrict display, ALLEGRO_BITMAP *restrict texture, ch_vis_buffer *restrict vb) {
     float width = 512;//al_get_bitmap_width(texture);
     float height = 512;//al_get_bitmap_width(texture);
 
@@ -84,7 +84,7 @@ void draw_waveforms(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ch_vis_bu
     al_set_target_backbuffer(display);
 }
 
-void draw_frequency_bins(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ch_vis_buffer* vb) {
+void draw_frequency_bins(ALLEGRO_DISPLAY* restrict display, ALLEGRO_BITMAP* restrict texture, ch_vis_buffer* restrict vb) {
     static const float width = 512;
     static const float height = 512;
 
@@ -102,7 +102,9 @@ void draw_frequency_bins(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ch_v
     al_set_target_backbuffer(display);
 }
 
-void draw_song_status(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ALLEGRO_FONT *font, ch_song *song) {
+void draw_song_status(ALLEGRO_DISPLAY* restrict display, 
+    ALLEGRO_BITMAP* restrict texture, ALLEGRO_FONT* restrict font, ch_song* restrict song,
+    int x, int y) {
     if (!song) return;
     
     float width = al_get_bitmap_width(texture);
@@ -113,10 +115,8 @@ void draw_song_status(ALLEGRO_DISPLAY *display, ALLEGRO_BITMAP *texture, ALLEGRO
     al_clear_to_color(al_map_rgb(0, 255, 0));
     al_hold_bitmap_drawing(true);
 
-    al_draw_text(font, al_map_rgb(0, 0, 0), 5, lh * 0, ALLEGRO_ALIGN_LEFT, "Currently Playing");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 5, lh * 1, ALLEGRO_ALIGN_LEFT, "Song:   %s", song->metadata.title);
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 5, lh * 2, ALLEGRO_ALIGN_LEFT, "Artist: %s", song->metadata.artist);
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 5, lh * 3, ALLEGRO_ALIGN_LEFT, "Album:  %s", song->metadata.album);
+    al_draw_text(font, al_map_rgb(0, 0, 0), x + 5, y + (lh * 0), ALLEGRO_ALIGN_LEFT, "Currently Playing");
+    al_draw_textf(font, al_map_rgb(0, 0, 0), x + 5, y + (lh * 1), ALLEGRO_ALIGN_LEFT, "Title: %s", song->title);
 
     al_hold_bitmap_drawing(false);
     al_set_target_backbuffer(display);

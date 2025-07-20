@@ -5,9 +5,7 @@ struct import_state {
     int last_song_id;
 
     int last_album_id;
-    int last_genre_id;
     const char* last_album_title;
-    const char* last_genre_title;
 };
 
 static int import_file_callback(ALLEGRO_FS_ENTRY *entry, void *vdb);
@@ -28,37 +26,20 @@ static bool str_ends_with(const char* str, const char* suffix) {
 }
 
 //static int import_folder_as_album(sqlite3 *db, ALLEGRO_FS_ENTRY *dir);
+static int print_filename_callback(ALLEGRO_FS_ENTRY *entry, void *_) {
+    //printf("%d\n", al_get_fs_entry_mode(entry));
+    if (al_get_fs_entry_mode(entry) & ALLEGRO_FILEMODE_ISDIR) {
+        printf("entering directory: %s\n", al_get_fs_entry_name(entry));
+    } else {
+        printf("%s\n", al_get_fs_entry_name(entry));
+    }
+    return ALLEGRO_FOR_EACH_FS_ENTRY_OK;
+}
 
 static int import_file_callback(ALLEGRO_FS_ENTRY *entry, void *vdb) {
     sqlite3* db = (sqlite3*) vdb;
     printf("hello from %s\n", al_get_fs_entry_name(entry));
     return ALLEGRO_FOR_EACH_FS_ENTRY_SKIP;
-}
-
-static int import_album_callback(ALLEGRO_FS_ENTRY *entry, void *valbum) {
-    ch_album *album = (ch_album*)valbum;
-    const char *fname = al_get_fs_entry_name(entry);
-    
-    if (al_get_fs_entry_mode(entry) == ALLEGRO_FILEMODE_ISDIR) {
-        printf("skipping subdirectory %s\n", al_get_fs_entry_name(entry));
-        return ALLEGRO_FOR_EACH_FS_ENTRY_SKIP;
-    }
-
-    // appears we're on a file then, hopefully it's a compatible one?
-    if (is_audio_file(fname)) {
-        // song import logic
-        //printf("found music file %s\n", fname);
-        ch_song* song = ch_song_load(fname);
-        if (!album->title && song->metadata.album) {
-            album->title = song->metadata.album;
-        }
-        ch_song_vec_push(&album->songs, song);
-    } else if (is_image_file(fname)) {
-        // album image import logic
-        album->picture_path = strdup(fname);
-    }
-
-    return ALLEGRO_FOR_EACH_FS_ENTRY_OK;
 }
 
 static int import_file_recursive_callback(ALLEGRO_FS_ENTRY *entry, void *vis) {
@@ -97,7 +78,16 @@ static int import_file_recursive_callback(ALLEGRO_FS_ENTRY *entry, void *vis) {
     // then we do album
     if (song_data.album && (artist_id || album_artist_id)) {
         // figure out a way to infer album art...
-        album_id = add_album(db, song_data.album, album_artist_id ? album_artist_id : artist_id, NULL);
+        if (state->last_album_title && song_data.album && strcmp(state->last_album_title, song_data.album) == 0) {
+            album_id = state->last_album_id;
+        } else {
+            printf("using a new album now...\n");
+            album_id = add_album(db, song_data.album, album_artist_id ? album_artist_id : artist_id, NULL);
+            state->last_album_title = strdup(song_data.album);
+            state->last_album_id = album_id;
+        }
+    } else if (song_data.album) {
+        printf("did not add album %s\n", song_data.album);
     }
 
     // finally do song...
@@ -109,18 +99,30 @@ static int import_file_recursive_callback(ALLEGRO_FS_ENTRY *entry, void *vis) {
 }
 
 bool is_audio_file(const char* fpath) {
-    return str_ends_with(fpath, "flac") || str_ends_with(fpath, "mp3") || str_ends_with(fpath, "ogg") || str_ends_with(fpath, "wav");
+    return al_identify_sample(fpath) != NULL;
 }
 
 bool is_image_file(const char* ipath) {
-    return str_ends_with(ipath, "jpg") || str_ends_with(ipath, "jpeg") || str_ends_with(ipath, "png");
+    return al_identify_bitmap(ipath) != NULL;
 }
 
-int import_music_from_file(sqlite3* db, const char* file_path) {
-    printf("just imported %s\n", file_path);
-    return ALLEGRO_FOR_EACH_FS_ENTRY_SKIP;
-}
+int print_music_files(sqlite3* db, const char* root_dir_path) {
+    printf("reading from %s\n", root_dir_path);
 
+    ALLEGRO_FS_ENTRY* dir = al_create_fs_entry(root_dir_path);
+    if (dir == NULL) {
+        return -1;
+    }
+    if (!al_fs_entry_exists(dir) || al_get_fs_entry_mode(dir) == ALLEGRO_FILEMODE_ISFILE) {
+        printf("couldn't find folder!\n");
+        al_destroy_fs_entry(dir);
+        return -1;
+    }
+
+    al_for_each_fs_entry(dir, print_filename_callback, NULL);
+
+    return 0;
+}
 
 /* returns the number of files imported or -1 if ANY fail...? */
 /*
@@ -162,15 +164,23 @@ int import_album_from_folder(sqlite3* db, const char* dir_path) {
 }
 */
 int import_music_from_folder_recursive(sqlite3* db, const char* dir_path) {
+    //printf("%s\n", dir_path);
     ALLEGRO_FS_ENTRY* dir = al_create_fs_entry(dir_path);
     if (dir == NULL) {
         return -1;
     }
-    if (!al_fs_entry_exists(dir) || al_get_fs_entry_mode(dir) == ALLEGRO_FILEMODE_ISFILE) {
-        printf("couldn't find folder!\n");
+    if (!al_fs_entry_exists(dir)) {
+        printf("couldn't find folder %s!\n", dir_path);
         al_destroy_fs_entry(dir);
         return -1;
     }
+    struct import_state state = {
+        .db = db,
+        .last_album_id = 0,
+        .last_album_title = NULL
+    };
 
-    al_for_each_fs_entry(dir, )
+    al_for_each_fs_entry(dir, import_file_recursive_callback, &state);
+
+    return 0;
 }

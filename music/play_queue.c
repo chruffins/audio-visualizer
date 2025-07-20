@@ -10,6 +10,7 @@ ch_play_queue* ch_play_queue_create() {
     return play_queue;
 }
 
+/*
 ch_song* ch_play_queue_get_next_song(ch_play_queue* play_queue) {
     switch (play_queue->loop_mode)
     {
@@ -53,7 +54,7 @@ ch_song* ch_play_queue_get_next_song(ch_play_queue* play_queue) {
         break;
     }
 }
-
+*/
 void ch_play_queue_destroy(ch_play_queue* play_queue) {
 
 }
