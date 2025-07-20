@@ -1,13 +1,18 @@
 #include "menu.h"
 
 static ALLEGRO_MENU_INFO default_menu_info[] = {
-    ALLEGRO_START_OF_MENU("&File", 1),
-        { "&Open", FILE_OPEN_ID, 0, NULL },
-        { "Open Fol&der", FOLDER_OPEN_ID, 0, NULL },
-        { "E&xit", FILE_EXIT_ID, 0, NULL },
+    ALLEGRO_START_OF_MENU("&File", MENU_FILE_TOPLEVEL),
+        { "&Open", MENU_FILE_OPEN, 0, NULL },
+        { "Open Fol&der", MENU_FILE_FOLDER, 0, NULL },
+        { "E&xit", MENU_FILE_EXIT, 0, NULL },
         ALLEGRO_END_OF_MENU,
-    ALLEGRO_START_OF_MENU("&Help", 7),
-        {"&About", 8, 0, NULL },
+    ALLEGRO_START_OF_MENU("&Debug", DEBUG_MENU_TOPLEVEL),
+        { "List &Albums", DEBUG_MENU_LIST_ALBUMS, 0, NULL },
+        { "List &Artists", DEBUG_MENU_LIST_ARTISTS, 0, NULL },
+        { "List &Genres", DEBUG_MENU_LIST_GENRES, 0, NULL },
+        ALLEGRO_END_OF_MENU,
+    ALLEGRO_START_OF_MENU("&Help", 90),
+        {"&About", 91, 0, NULL },
         ALLEGRO_END_OF_MENU,
     ALLEGRO_END_OF_MENU
 };
@@ -18,7 +23,7 @@ ALLEGRO_MENU* get_menu() {
 
 char* choose_audio_file() {
     // need to change this to remember last directory or something
-    ALLEGRO_FILECHOOSER* restrict fc = al_create_native_file_dialog("./", "Select Audio", "*.wav;*.ogg;*.flac;*.opus;*.mp3", ALLEGRO_FILECHOOSER_FILE_MUST_EXIST);
+    ALLEGRO_FILECHOOSER* restrict fc = al_create_native_file_dialog("./", "Select Audio", "*.wav;*.ogg;*.flac;*.opus;*.mp3;*.m4a", ALLEGRO_FILECHOOSER_FILE_MUST_EXIST);
     char* restrict copied_path = NULL;
     const char* restrict path;
     al_show_native_file_dialog(NULL, fc);

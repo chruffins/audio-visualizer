@@ -4,20 +4,24 @@
 #include<math.h>
 #include<complex.h>
 #include<memory.h>
-
 #include<sqlite3.h>
 #include<fftw3.h>
-#include "menu.h"
+
+#include "core/menu.h"
+#include "core/event_handler.h"
+#include "core/app_state.h"
+#include "core/inputstate.h"
+
 #include "graphics/particle.h"
 #include "graphics/font.h"
 #include "graphics/camera.h"
-#include "inputstate.h"
 #include "graphics/geometry.h"
 #include "graphics/visualization.h"
 
 #include "music/song.h"
 #include "music/database.h"
 #include "music/audio_parser.h"
+#include "music/play_queue.h"
 
 #include<allegro5/allegro.h>
 #include<allegro5/allegro_acodec.h>
@@ -32,39 +36,6 @@
 #define PI 3.14159265
 #define PARTICLE_LIMIT 8192
 #define SAMPLES 1024
-
-static char* filename = NULL;
-static const int width = 1920;
-static const int height = 1080;
-static ALLEGRO_DISPLAY* display;
-
-static ch_vis_buffer *vb;
-
-static ch_song* song;
-static ch_model model;
-static ch_model info_cube;
-static ALLEGRO_BITMAP* test_texture;
-static ALLEGRO_BITMAP* info_cube_texture;
-static ALLEGRO_VERTEX triangles[3*1000] = { 0 };
-static int triangles_n = 0;
-
-static camera cam = { 0 };
-
-static particle* particles = NULL;
-static int particles_ptr = 0;
-
-// FPS tracking
-static double fps = 0;
-static uint64_t frames_done = 0;
-static double old_time = 0;
-
-static ALLEGRO_TRANSFORM identity_transform;
-
-static ALLEGRO_FONT* def = NULL;
-static input_state input;
-
-// database
-static sqlite3* db;
 
 void must_init(int test, const char* name) {
     if (test) return;
@@ -86,33 +57,7 @@ void do_inits() {
     must_init(al_install_mouse(), "mouse");
     must_init(al_install_keyboard(), "keyboard");
 
-    al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP | ALLEGRO_MIN_LINEAR | ALLEGRO_MIPMAP);
-    al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
-    al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
-    al_set_new_display_option(ALLEGRO_DEPTH_SIZE, 16, ALLEGRO_SUGGEST);
-    al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_GTK_TOPLEVEL | ALLEGRO_PROGRAMMABLE_PIPELINE);
-
-    vb = ch_vis_buffer_create();
-
-    particles = malloc(sizeof(particle)*PARTICLE_LIMIT);
-    al_identity_transform(&identity_transform);
-
-    cam.x.x = 1;
-    cam.y.y = 1;
-    
-    cam.z = vector3_new(0, 0, 1);
-    cam.pos = vector3_new(0, 0, 0);
-
-    cam.fov = 60 * ALLEGRO_PI / 180;
-
-    int rc = sqlite3_open("music.db", &db);
-    if (rc) {
-        fprintf(stderr, "can't open database: %s\n", sqlite3_errmsg(db));
-    }
-    rc = init_database(db);
-    if (rc) {
-        exit(1);
-    }
+    init_app_state();
 }
 
 void update_buffer(void* buf, unsigned int samples, void* data) {
@@ -120,7 +65,7 @@ void update_buffer(void* buf, unsigned int samples, void* data) {
     float* fbuf = (float*)buf;
 
     // assume stereo i.e. 2 channels
-    ch_vis_buffer_add_samples(vb, fbuf);
+    ch_vis_buffer_add_samples(get_app_state()->vb, fbuf);
     /*
     for (int i = 0; i < samples; i++) {
         waveform_buffer[pos++] = fbuf[i * 2];
@@ -131,18 +76,19 @@ void update_buffer(void* buf, unsigned int samples, void* data) {
         }
     }
     */
-   ch_vis_buffer_do_fft(vb);
+   ch_vis_buffer_do_fft(get_app_state()->vb);
 }
 
 void handle_input() {
     double x = 0, y = 0, z = 0, xyz = 0;
+    ch_app_state* app = get_app_state();
 
-    if (input.key_down[ALLEGRO_KEY_W]) z += 1;
-    if (input.key_down[ALLEGRO_KEY_S]) z -= 1;
-    if (input.key_down[ALLEGRO_KEY_A]) x += 1;
-    if (input.key_down[ALLEGRO_KEY_D]) x -= 1;
-    if (input.key_down[ALLEGRO_KEY_E]) y += 1;
-    if (input.key_down[ALLEGRO_KEY_Q]) y -= 1;
+    if (app->input.key_down[ALLEGRO_KEY_W]) z += 1;
+    if (app->input.key_down[ALLEGRO_KEY_S]) z -= 1;
+    if (app->input.key_down[ALLEGRO_KEY_A]) x += 1;
+    if (app->input.key_down[ALLEGRO_KEY_D]) x -= 1;
+    if (app->input.key_down[ALLEGRO_KEY_E]) y += 1;
+    if (app->input.key_down[ALLEGRO_KEY_Q]) y -= 1;
 
     xyz = sqrt(x * x + y * y + z * z);
     if (xyz > 0) {
@@ -150,23 +96,23 @@ void handle_input() {
         y /= xyz;
         z /= xyz;
 
-        camera_move(&cam, -0.1 * x, -0.1 * y,
+        camera_move(&app->cam, -0.1 * x, -0.1 * y,
             -0.1 * z);
     }
 
-    if (input.mouse_buttons[1]) {
+    if (app->input.mouse_buttons[1]) {
         // printf("%d %d\n", input.mouse_dx, input.mouse_dy);
-        camera_rotate_around_axis(&cam, cam.x,
-            -0.01 * input.mouse_dy);
-        camera_rotate_around_axis(&cam, (vector3){0, 1, 0},
-            -0.01 * input.mouse_dx);
+        camera_rotate_around_axis(&app->cam, app->cam.x,
+            -0.01 * app->input.mouse_dy);
+        camera_rotate_around_axis(&app->cam, (vector3){0, 1, 0},
+            -0.01 * app->input.mouse_dx);
     }
 }
 
 void add_vertex(double x, double y, double z, double u, double v, ALLEGRO_COLOR color) {
-    int i = triangles_n++;
+    int i = get_app_state()->triangles_n++;
 
-    triangles[i] = (ALLEGRO_VERTEX){ .x = x, .y = y, .z = z, .u = u, .v = v, .color = color };
+    get_app_state()->triangles[i] = (ALLEGRO_VERTEX){ .x = x, .y = y, .z = z, .u = u, .v = v, .color = color };
 }
 
 void add_quad(double x, double y, double z, double u, double v,
@@ -186,37 +132,38 @@ void add_quad(double x, double y, double z, double u, double v,
 void draw_scene() {
     ALLEGRO_TRANSFORM projection = *al_get_current_projection_transform();
     double pitch, yaw, roll;
+    ch_app_state* app = get_app_state();
 
     // all of our 3d elements go here
-    setup_3d_projection(&cam);
+    setup_3d_projection(&app->cam);
     al_clear_to_color(al_map_rgb(25, 25, 25));
 
     al_set_render_state(ALLEGRO_DEPTH_TEST, 1);
     al_clear_depth_buffer(1);
 
-    build_and_use_camera_transform(&cam);
+    build_and_use_camera_transform(&app->cam);
 
-    al_draw_prim(triangles, NULL, test_texture, 0, triangles_n, ALLEGRO_PRIM_TRIANGLE_LIST);
-    ch_model_draw(&model);
-    ch_model_draw(&info_cube);
+    al_draw_prim(app->triangles, NULL, app->test_texture, 0, app->triangles_n, ALLEGRO_PRIM_TRIANGLE_LIST);
+    //ch_model_draw(&model);
+    ch_model_draw(&app->info_cube);
 
     // back to 2d we go
-    al_use_transform(&identity_transform);
+    al_use_transform(&app->identity_transform);
     al_use_projection_transform(&projection);
     al_set_render_state(ALLEGRO_DEPTH_TEST, 0);
 
     al_hold_bitmap_drawing(true);
-    int lh = al_get_font_line_height(def);
-    al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 0, 0, "%.0f FPS", fps);
-    al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 1, 0, "pos: %.1f, %.1f, %.1f", cam.pos.x, cam.pos.y, cam.pos.z);
+    int lh = al_get_font_line_height(app->def);
+    al_draw_textf(app->def, al_map_rgb(255, 0, 0), 0, lh * 0, 0, "%.0f FPS", app->fps);
+    al_draw_textf(app->def, al_map_rgb(255, 0, 0), 0, lh * 1, 0, "pos: %.1f, %.1f, %.1f", app->cam.pos.x, app->cam.pos.y, app->cam.pos.z);
     
-    pitch = camera_get_pitch(&cam) * 180 / PI;
-    yaw = camera_get_yaw(&cam) * 180 / PI;
-    roll = camera_get_roll(&cam) * 180 / PI;
-    al_draw_textf(def, al_map_rgb(255, 0, 0), 0, lh * 2, 0, "pitch: %+4.0f, yaw: %+4.0f, roll: %+4.0f", pitch, yaw, roll);
+    pitch = camera_get_pitch(&app->cam) * 180 / PI;
+    yaw = camera_get_yaw(&app->cam) * 180 / PI;
+    roll = camera_get_roll(&app->cam) * 180 / PI;
+    al_draw_textf(app->def, al_map_rgb(255, 0, 0), 0, lh * 2, 0, "pitch: %+4.0f, yaw: %+4.0f, roll: %+4.0f", pitch, yaw, roll);
     al_hold_bitmap_drawing(false);
-    draw_frequency_bins(display, test_texture, vb);
-    draw_song_status(display, info_cube_texture, def, song);
+    draw_frequency_bins(app->display, app->test_texture, app->vb);
+    draw_song_status(app->display, al_get_backbuffer(app->display), app->def, app->song, 0, 200);
 
     al_flip_display();
 }
@@ -246,35 +193,30 @@ void add_checkerboard(void)
 }
 
 void run_main_loop() {
-    display = al_create_display(width, height);
+    ch_app_state* app = get_app_state();
+    app->display = al_create_display(app->width, app->height);
 
     char* filepath;
 
-    def = get_default_font();
+    app->def = get_default_font();
 
     ALLEGRO_MENU* menu = get_menu();
-    al_set_display_menu(display, menu);
+    al_set_display_menu(app->display, menu);
 
+    ALLEGRO_MOUSE_STATE mouse_state;
     ALLEGRO_EVENT_QUEUE* queue = al_create_event_queue();
     ALLEGRO_TIMER* timer = al_create_timer(1.0 / 60.0);
     ALLEGRO_EVENT event;
 
-    ALLEGRO_VOICE* voice = al_create_voice(44100, ALLEGRO_AUDIO_DEPTH_INT16, ALLEGRO_CHANNEL_CONF_2);
-    ALLEGRO_MIXER* mixer = al_create_mixer(44100, ALLEGRO_AUDIO_DEPTH_FLOAT32, ALLEGRO_CHANNEL_CONF_2);
-
-    ALLEGRO_MOUSE_STATE mouse_state;
-    FILE* fp = NULL;
-
-    al_attach_mixer_to_voice(mixer, voice);
+    al_attach_mixer_to_voice(app->mixer, app->voice);
     al_reserve_samples(32);
 
-    ALLEGRO_AUDIO_STREAM* stream = al_load_audio_stream(filename, 4, 4096);
-    //al_set_audio_stream
-    if (!stream) {
+    app->stream = al_load_audio_stream(app->filename, 4, 4096);
+    if (!app->stream) {
         printf("Failed to create stream...\n");
     }
-    al_attach_audio_stream_to_mixer(stream, mixer);
-    al_set_mixer_postprocess_callback(mixer, update_buffer, NULL);
+    al_attach_audio_stream_to_mixer(app->stream, app->mixer);
+    al_set_mixer_postprocess_callback(app->mixer, update_buffer, NULL);
 
     bool redraw = false;
     bool unfinished = true;
@@ -283,25 +225,25 @@ void run_main_loop() {
     
     // const vector2 center = { width / 2, height / 2 };
     // TODO: actually make something for rendering geometry
-    song = ch_song_load(filename);
+    // song = ch_song_load(filename);
 
     al_register_event_source(queue, al_get_mouse_event_source());
     al_register_event_source(queue, al_get_keyboard_event_source());
-    al_register_event_source(queue, al_get_display_event_source(display));
+    al_register_event_source(queue, al_get_display_event_source(app->display));
     al_register_event_source(queue, al_get_timer_event_source(timer));
     al_register_event_source(queue, al_get_default_menu_event_source());
-    al_register_event_source(queue, al_get_audio_stream_event_source(stream));
+    al_register_event_source(queue, al_get_audio_stream_event_source(app->stream));
 
     al_start_timer(timer);
     al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP | ALLEGRO_NO_PRESERVE_TEXTURE | ALLEGRO_MIN_LINEAR | ALLEGRO_MAG_LINEAR);
-    test_texture = al_create_bitmap(512, 512);
-    info_cube_texture = al_create_bitmap(512, 512);
-    al_set_target_bitmap(test_texture);
+    app->test_texture = al_create_bitmap(512, 512);
+    app->info_cube_texture = al_create_bitmap(512, 512);
+    al_set_target_bitmap(app->test_texture);
     al_clear_to_color(al_map_rgb(255,255,255));
-    al_set_target_backbuffer(display);
+    al_set_target_backbuffer(app->display);
 
-    model = ch_model_load("assets/teapot.obj", ALLEGRO_PRIM_BUFFER_STATIC);
-    ch_model_init_cube(&info_cube, info_cube_texture, 5, 0, 5, 0);
+    app->model = ch_model_load("assets/teapot.obj", ALLEGRO_PRIM_BUFFER_STATIC);
+    ch_model_init_cube(&app->info_cube, app->info_cube_texture, 5, 0, 15, 0);
     //ch_model_init_cube(&model, 40, 0, 0, 0);
     
     // al_load_bitmap("assets/plank.jpeg");
@@ -311,7 +253,7 @@ void run_main_loop() {
     al_clear_to_color(al_map_rgb(255,255,255));
     al_set_target_backbuffer(display);
     */
-    if (test_texture) {
+    if (app->test_texture) {
         //model.texture = test_texture;
     } else {
         printf("failed to add texture!\n");
@@ -334,64 +276,45 @@ void run_main_loop() {
         switch (event.type)
         {
         case ALLEGRO_EVENT_DISPLAY_RESIZE:
-            al_acknowledge_resize(display);
+            handle_display_resize(&event);
             break;
         case ALLEGRO_EVENT_DISPLAY_CLOSE:
             unfinished = false;
             break;
         case ALLEGRO_EVENT_AUDIO_STREAM_FINISHED:
-            printf("song finished!\n");
+            handle_audio_stream_finished(&event);
             break;
         case ALLEGRO_EVENT_KEY_DOWN:
-            input.key_down[event.keyboard.keycode] = 1;
-            input.key_state[event.keyboard.keycode] = 1;
-
-            if (event.keyboard.keycode == ALLEGRO_KEY_RIGHT) {
-                mode = (mode + 1) % 4;
-                printf("mode changed: %d\n",mode);
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_SPACE) {
-                al_set_audio_stream_playing(stream, !al_get_audio_stream_playing(stream));
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_UP) {
-                al_set_audio_stream_gain(stream, al_get_audio_stream_gain(stream)+0.1);
-                printf("new gain: %f\n", al_get_audio_stream_gain(stream));
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_DOWN) {
-                al_set_audio_stream_gain(stream, al_get_audio_stream_gain(stream)-0.1);
-                printf("new gain: %f\n", al_get_audio_stream_gain(stream));
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_O) {
-                al_set_audio_stream_pan(stream, al_get_audio_stream_pan(stream)-0.1 < -1 ? -1 : al_get_audio_stream_pan(stream)-0.1);
-                printf("new pan: %f\n", al_get_audio_stream_pan(stream));
-            } else if (event.keyboard.keycode == ALLEGRO_KEY_P) {
-                al_set_audio_stream_pan(stream, al_get_audio_stream_pan(stream)+0.1 > 1 ? 1 : al_get_audio_stream_pan(stream)+0.1);
-                printf("new pan: %f\n", al_get_audio_stream_pan(stream));
-            }
+            handle_key_down(&event);
             break;
         case ALLEGRO_EVENT_KEY_UP:
-            input.key_state[event.keyboard.keycode] = 0;
+            handle_key_up(&event);
             break;
         case ALLEGRO_EVENT_TIMER:
             for (int i = 0; i < SAMPLES; i++) {
-                particles_ptr = (particles_ptr + 1) % PARTICLE_LIMIT;
+                app->particles_ptr = (app->particles_ptr + 1) % PARTICLE_LIMIT;
 
                 // particles[particles_ptr] = particle_create_params(vector2_new((i*((double)width / SAMPLES)), (center.y / 2.0) + (waveform[i] * 250)), vector2_new(0,0), 
                 // vector2_new(0,0), al_map_rgb(0, 255, 0), 2);
             }
 
             for (int i = 0; i < PARTICLE_LIMIT; i++) {
-                particle_update(&particles[i]);
+                particle_update(&app->particles[i]);
             }
             handle_input();
 
             for (int i = 0; i < ALLEGRO_KEY_MAX; i++) {
-                if (input.key_state[i] == 0) input.key_down[i] = 0;
+                if (app->input.key_state[i] == 0) app->input.key_down[i] = 0;
             }
-            input.mouse_dx = 0;
-            input.mouse_dy = 0;
+            app->input.mouse_dx = 0;
+            app->input.mouse_dy = 0;
             redraw = true;
             break;
         case ALLEGRO_EVENT_MENU_CLICK:
-            if (event.user.data1 == FILE_EXIT_ID) {
+            /*
+            if (event.user.data1 == MENU_FILE_EXIT) {
                 unfinished = false;
-            } else if (event.user.data1 == FILE_OPEN_ID) {
+            } else if (event.user.data1 == MENU_FILE_OPEN) {
                 filepath = choose_audio_file();
                 if (filepath) {
                     fp = fopen("recent.txt", "w");
@@ -399,41 +322,45 @@ void run_main_loop() {
                         fprintf(fp, "%s", filepath);
                         fclose(fp);
                     }
-                    al_destroy_audio_stream(stream);
-                    stream = al_load_audio_stream(filepath, 4, 4096);
-                    if (stream) {
-                        song = ch_song_load(filepath);
-                        al_register_event_source(queue, al_get_audio_stream_event_source(stream));
-                        al_attach_audio_stream_to_mixer(stream, mixer);
+                    al_destroy_audio_stream(app->stream);
+                    app->stream = al_load_audio_stream(filepath, 4, 4096);
+                    if (app->stream) {
+                        // song = ch_song_load(filepath);
+                        al_register_event_source(queue, al_get_audio_stream_event_source(app->stream));
+                        al_attach_audio_stream_to_mixer(app->stream, app->mixer);
                         //song = ch_song_create(filepath);
                         //ch_song_print(song);
                     }
                     free(filepath);
                 }
-            } else if (event.user.data1 == FOLDER_OPEN_ID) {
+            } else if (event.user.data1 == MENU_FILE_FOLDER) {
                 filepath = choose_album_folder();
+                printf("user picked folder %s\n", filepath);
                 if (filepath) {
-                    import_album_from_folder(db, filepath);
+                    import_music_from_folder_recursive(app->db, filepath);
+                    //print_music_files(db, filepath);
+                    free(filepath);
                 }
             }
-            
+            */
+            handle_menu_click(&event);
             break;
         case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
             if (event.mouse.button == 1) {
                 printf("mouse down @ %d %d!\n", event.mouse.x, event.mouse.y);
                 mousedown = true;
             }
-            input.mouse_buttons[event.mouse.button] = 1;
+            app->input.mouse_buttons[event.mouse.button] = 1;
             break;
         case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
             if (event.mouse.button == 1) {
                 mousedown = false;
             }
-            input.mouse_buttons[event.mouse.button] = 0;
+            app->input.mouse_buttons[event.mouse.button] = 0;
             break;
         case ALLEGRO_EVENT_MOUSE_AXES:
-            input.mouse_dx += event.mouse.dx;
-            input.mouse_dy += event.mouse.dy;
+            app->input.mouse_dx += event.mouse.dx;
+            app->input.mouse_dy += event.mouse.dy;
             break;
         default:
             break;
@@ -441,9 +368,14 @@ void run_main_loop() {
         if (event.type == ALLEGRO_EVENT_TIMER && mousedown) {
             al_get_mouse_state(&mouse_state);
             for (int i = 0; i < 5; i++) {
-                particles[particles_ptr] = particle_create_params( (vector2){ mouse_state.x, mouse_state.y }, (vector2){ (rand() % 9) - 4, (rand() % 9) - 4 }, 
-                    (vector2){ 0, 0.3 }, al_map_rgb(rand() % 255, rand() % 255, rand() % 255), 300);
-                particles_ptr = (particles_ptr + 1) % PARTICLE_LIMIT;
+                app->particles[app->particles_ptr] = particle_create_params(
+                    (vector2){ mouse_state.x, mouse_state.y },
+                    (vector2){ (rand() % 9) - 4, (rand() % 9) - 4 },
+                    (vector2){ 0, 0.3 },
+                    al_map_rgb(rand() % 255, rand() % 255, rand() % 255),
+                    300
+                );
+                app->particles_ptr = (app->particles_ptr + 1) % PARTICLE_LIMIT;
             }
         }
 
@@ -452,41 +384,42 @@ void run_main_loop() {
 
             draw_scene();
 
-            frames_done++;
+            app->frames_done++;
         }
 
         double game_time = al_get_time();
-        if (game_time - old_time >= 0.2) {
-            fps = frames_done / (game_time - old_time);
+        if (game_time - app->old_time >= 0.2) {
+            app->fps = app->frames_done / (game_time - app->old_time);
 
-            frames_done = 0;
-            old_time = game_time;
+            app->frames_done = 0;
+            app->old_time = game_time;
         }
     }
 
-    al_destroy_audio_stream(stream);
-    al_destroy_mixer(mixer);
-    al_destroy_display(display);
+    al_destroy_audio_stream(app->stream);
+    al_destroy_mixer(app->mixer);
+    al_destroy_voice(app->voice);
+    al_destroy_display(app->display);
     al_destroy_event_queue(queue);
 }
 
 int main(int argc, char **argv) {
     FILE* fp;
+    ch_app_state* app = get_app_state();
 
     fp = fopen("recent.txt", "r");
     if (fp) {
-        filename = malloc(sizeof(char)*300);
-        fgets(filename, 300, fp);
+        app->filename = malloc(sizeof(char)*300);
+        fgets(app->filename, 300, fp);
         fclose(fp);
     } else {
-        filename = "./bitterend.ogg";
+        app->filename = "./bitterend.ogg";
     }
 
     do_inits();
-    //import_album_from_folder(db, "/home/chris/Music/complete/Arindale64/SSX Tricky");
     run_main_loop();
 
-    sqlite3_close(db);
+    sqlite3_close(app->db);
 
     return 0;
 }

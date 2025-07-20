@@ -242,7 +242,7 @@ int add_album(sqlite3 *db, const char *name, int year, const char *picture_path)
 
 int add_song(sqlite3 *db, const char *song_path, const char *title, int album_id, int track, const char *comment, int duration) {
     sqlite3_stmt* stmt;
-    const char* sql = "INSERT INTO songs (song_path, title, album_id, track, comment, duration)";
+    const char* sql = "INSERT INTO songs (song_path, title, album_id, track, comment, duration) VALUES (?, ?, ?, ?, ?, ?)";
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
 
     if (rc != SQLITE_OK) {
@@ -398,7 +398,7 @@ ch_playlist* get_playlist_by_id(sqlite3* db, int id) {
         return rc;
     }
 
-    sqlite3_bind_int(db, 1, id);
+    sqlite3_bind_int(stmt, 1, id);
 
     rc = sqlite3_step(stmt);
     if (rc == SQLITE_DONE) {
@@ -418,9 +418,10 @@ ch_playlist* get_playlist_by_id(sqlite3* db, int id) {
 
     // now we need to grab the songs
     size_t num_songs = count_songs_in_playlist(db, id); // independent statement stuff goes inside here
-    ch_song_vec_reserve(&playlist->songs, num_songs+1);
+    // TODO: fix this
+    // ch_song_vec_reserve(&playlist->songs, num_songs+1);
 
-    int rc = sqlite3_prepare_v2(db, playlist_song_sql, -1, &stmt, NULL);
+    rc = sqlite3_prepare_v2(db, playlist_song_sql, -1, &stmt, NULL);
 
     sqlite3_finalize(stmt);
     return playlist;
@@ -452,13 +453,84 @@ ch_song* get_song_from_stmt(sqlite3_stmt* stmt) {
     return s;
 }
 
+void get_artists(sqlite3* db) {
+    const char* artist_sql = "SELECT id, name, picture_path, desc FROM artists";
+
+    int num_artists = get_row_count(db, "artists");
+    sqlite3_stmt* stmt;
+
+    int rc = sqlite3_prepare_v2(db, artist_sql, -1, &stmt, NULL);
+
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "failed to prepare get artist by name statement: %s\n", sqlite3_errmsg(db));
+        goto end;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        printf("artist: %s\n", sqlite3_column_text(stmt, 1));
+    }
+end:
+    sqlite3_finalize(stmt);
+    return;
+}
+
+void get_genres(sqlite3* db) {
+    const char* genre_sql = "SELECT id, name FROM genres";
+    int num_genres = get_row_count(db, "genres");
+    sqlite3_stmt* stmt;
+
+    int rc = sqlite3_prepare_v2(db, genre_sql, -1, &stmt, NULL);
+
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "failed to prepare get artist by name statement: %s\n", sqlite3_errmsg(db));
+        goto end;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        printf("genre: %s\n", sqlite3_column_text(stmt, 1));
+    }
+end:
+    sqlite3_finalize(stmt);
+    return;
+}
+
+ch_song_vec get_songs(sqlite3* db) {
+
+}
+
 ch_album_vec get_albums(sqlite3 *db) {
+    ch_album_vec vec;
     const char* album_sql = "SELECT id, name, year, picture_path FROM albums";
 
     int num_albums = get_row_count(db, "albums");
+    sqlite3_stmt* stmt;
 
+    int rc = sqlite3_prepare_v2(db, album_sql, -1, &stmt, NULL);
+
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "failed to prepare get artist by name statement: %s\n", sqlite3_errmsg(db));
+        goto end;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        printf("album: %s\n", sqlite3_column_text(stmt, 1));
+    }
+end:
+    sqlite3_finalize(stmt);
+    return vec;
 }
 
 ch_song* get_song_by_id(sqlite3* db, int id) {
 
 }
+
+/*
+void load_database(sqlite3* db, ch_song_vec* songs, ch_album_vec* albums, ch_artist_vec* artists, ch_genre_vec* genres, ch_playlist_vec* playlists) {
+    *songs = get_songs(db);
+    *albums = get_albums(db);
+    *artists = get_artists(db);
+    *genres = get_genres(db);
+    *playlists = get_playlists(db);
+    // For each song, album, etc., load relationships if needed
+}
+*/

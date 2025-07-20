@@ -7,10 +7,19 @@ set(CMAKE_C_STANDARD 11)
 # find the files
 file(GLOB_RECURSE SOURCES *.c)
 
-add_executable(audiovis main.c menu.c 
-graphics/particle.c graphics/vector.c graphics/font.c graphics/camera.c graphics/geometry.c graphics/obj_parser.c graphics/visualization.c
-music/song.c music/album.c music/database.c music/audio_parser.c music/play_queue.c music/playlist.c
-util/queue.c)
+# Collect all .c files from specific subdirectories
+file(GLOB CORE_SOURCES core/*.c)
+file(GLOB GRAPHICS_SOURCES graphics/*.c)
+file(GLOB MUSIC_SOURCES music/*.c)
+file(GLOB UTIL_SOURCES util/*.c)
+
+add_executable(audiovis
+    main.c
+    ${CORE_SOURCES}
+    ${GRAPHICS_SOURCES}
+    ${MUSIC_SOURCES}
+    ${UTIL_SOURCES}
+)
 
 target_compile_options(audiovis PRIVATE -O3 -Wall -g -ftree-vectorize)
 #target_compile_options(chrus_engine -g)
