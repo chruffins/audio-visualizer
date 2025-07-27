@@ -145,8 +145,9 @@ void draw_scene() {
 
     update_camera_transform(&app->cam);
 
+    ALLEGRO_TRANSFORM rot_only = get_skybox_camera_transform(&app->cam);
     ALLEGRO_TRANSFORM combined = app->skybox.box.transform;
-    al_compose_transform(&combined, &app->cam.transform);
+    al_compose_transform(&combined, &rot_only);
     al_use_transform(&combined);
     ch_skybox_draw(&app->skybox);
     

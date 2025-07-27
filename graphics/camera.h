@@ -67,6 +67,19 @@ inline void build_and_use_camera_transform(camera* cam) {
 }
 
 /**
+ * @brief Build and use a translation-invariant camera transform for skybox.
+ * @param cam Pointer to camera
+ */
+inline ALLEGRO_TRANSFORM get_skybox_camera_transform(camera* cam) {
+    ALLEGRO_TRANSFORM t;
+    al_build_camera_transform(&t, 
+        0, 0, 0,
+        -cam->z.x, -cam->z.y, -cam->z.z,
+        cam->y.x, cam->y.y, cam->y.z);
+    return t;
+}
+
+/**
  * @brief Builds the camera transform for rendering.
  * @param cam Pointer to camera
  */

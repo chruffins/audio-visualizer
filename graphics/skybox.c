@@ -1,13 +1,53 @@
 #include "skybox.h"
 
+static const ALLEGRO_COLOR white = (ALLEGRO_COLOR) { .r = 1, .g = 1, .b = 1, };
+
+static const ALLEGRO_VERTEX skybox_vertices[] = {
+// Front face (mirrored horizontally and vertically)
+{ -1, -1,  1, 1, 1, white },
+{  1, -1,  1, 0, 1, white },
+{  1,  1,  1, 0, 0, white },
+{ -1,  1,  1, 1, 0, white },
+
+// Back face
+{ -1, -1, -1, 0, 1, white },
+{  1, -1, -1, 1, 1, white },
+{  1,  1, -1, 1, 0, white },
+{ -1,  1, -1, 0, 0, white },
+
+// Left face
+{ -1, -1, -1, 1, 1, white },
+{ -1, -1,  1, 0, 1, white },
+{ -1,  1,  1, 0, 0, white },
+{ -1,  1, -1, 1, 0, white },
+
+// Right face
+{  1, -1, -1, 0, 1, white },
+{  1, -1,  1, 1, 1, white },
+{  1,  1,  1, 1, 0, white },
+{  1,  1, -1, 0, 0, white },
+
+// Top face
+{ -1,  1, -1, 1, 1, white },
+{  1,  1, -1, 0, 1, white },
+{  1,  1,  1, 0, 0, white },
+{ -1,  1,  1, 1, 0, white },
+
+// Bottom face
+{ -1, -1, -1, 1, 1, white },
+{  1, -1, -1, 0, 1, white },
+{  1, -1,  1, 0, 0, white },
+{ -1, -1,  1, 1, 0, white },
+};
+
 ch_skybox ch_skybox_load(const char *front, const char *right, const char *back, const char *left, const char *down, const char *up) {
     ch_skybox skybox;
     skybox.faces[SKYBOX_FRONT] = al_load_bitmap(front);
-    skybox.faces[SKYBOX_RIGHT] = al_load_bitmap(right);
+    skybox.faces[SKYBOX_RIGHT] = al_load_bitmap(left);
     skybox.faces[SKYBOX_BACK] = al_load_bitmap(back);
-    skybox.faces[SKYBOX_LEFT] = al_load_bitmap(left);
-    skybox.faces[SKYBOX_UP] = al_load_bitmap(down);
-    skybox.faces[SKYBOX_DOWN] = al_load_bitmap(up);
+    skybox.faces[SKYBOX_LEFT] = al_load_bitmap(right);
+    skybox.faces[SKYBOX_UP] = al_load_bitmap(up);
+    skybox.faces[SKYBOX_DOWN] = al_load_bitmap(down);
 
     ch_model_init_cube(&skybox.box, NULL, 100, 0, 0, 0);
 
@@ -16,6 +56,7 @@ ch_skybox ch_skybox_load(const char *front, const char *right, const char *back,
 
     // now we have to fix the UVs....
     for (int i = 0; i < 24; i++) {
+        skybox.box.vertex_data[i] = skybox_vertices[i];
         skybox.box.vertex_data[i].u *= width;
         skybox.box.vertex_data[i].v *= height;
     }
