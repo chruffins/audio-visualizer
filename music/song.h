@@ -3,6 +3,7 @@
 #include<stdio.h>
 #include<string.h>
 #include<stdlib.h>
+#include<time.h>
 
 #include "../util/vector.h"
 
@@ -127,6 +128,17 @@ inline void ch_song_vec_free(ch_song_vec *vec) {
  * @param song Pointer to ch_song
  */
 void ch_song_print(ch_song* song);
+
+/**
+ * @brief Returns a pointer to a random song within the song_vec
+ * @param vec Pointer to ch_song_vec
+ */
+inline ch_song* ch_song_vec_rand(ch_song_vec* vec) {
+    srandom(time(NULL));
+    if (vec->size == 0) return NULL;
+    size_t t = random() % vec->size;
+    return &vec->data[t];
+}
 
 /**
  * @brief Comparator for sorting songs by track number.

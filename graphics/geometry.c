@@ -1,4 +1,5 @@
 #include "geometry.h"
+#include <math.h>
 
 struct tri_helper { // tri_helper doesn't own of its pointers
     ch_obj* obj;
@@ -23,6 +24,10 @@ ch_model ch_model_create(ALLEGRO_VERTEX *vertices, unsigned int n_vertices, int 
     model.texture = texture;
     model.buffer_flags = buffer_flags;
     model.prim_type = prim_type;
+    model.position = (vector3) {0};
+    model.rotation = (vector3) {0};
+    model.scale = vector3_new(1, 1, 1);
+    ch_model_recalculate_transform(&model);
 
     if (texture) {
         // need to go through all of the vertices and set uv properly
@@ -46,6 +51,10 @@ void ch_model_init(ch_model *model, ALLEGRO_VERTEX *init_vertices, int *index_bu
     model->texture = texture;
     model->vertex_buffer = al_create_vertex_buffer(NULL, init_vertices, num_vertices, buffer_flags);
     model->index_buffer = al_create_index_buffer(4, index_buffer, num_indices, buffer_flags);
+    model->position = vector3_new(0, 0, 0);
+    model->rotation = vector3_new(0, 0, 0);
+    model->scale = vector3_new(1, 1, 1);
+    model->transform_dirty = 1;
 }
 
 void ch_model_draw(ch_model* model) {
@@ -117,14 +126,16 @@ void ch_model_init_cube(ch_model* model, ALLEGRO_BITMAP* texture, double lwh, do
     for (int i = 0; i < 24; i++) {
         vertices[i] = cube_vertices[i];
 
-        vertices[i].x = (vertices[i].x * lwh / 2) + x;
-        vertices[i].y = (vertices[i].y * lwh / 2) + y;
-        vertices[i].z = (vertices[i].z * lwh / 2) + z;
+        vertices[i].x = (vertices[i].x / 2);
+        vertices[i].y = (vertices[i].y / 2);
+        vertices[i].z = (vertices[i].z / 2);
         vertices[i].u *= al_get_bitmap_width(texture);
         vertices[i].v *= al_get_bitmap_height(texture);
     }
 
     ch_model_init(model, vertices, indices, 24, 36, texture, ALLEGRO_PRIM_BUFFER_DYNAMIC, ALLEGRO_PRIM_TRIANGLE_LIST);
+    model->position = vector3_new(x, y, z);
+    model->scale = vector3_new(lwh, lwh, lwh);
 }
 
 ch_model ch_model_load(char* obj_filename, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags) {
@@ -193,4 +204,47 @@ void fan_triangulation(CH_VERTEX* vertices, int n_vertices, void (*emit_triangle
     for (int i = 1; i < n_vertices - 1; i++) {
         emit_triangle(0, i, i + 1, userdata);
     }
+}
+
+void ch_model_move(ch_model* model, vector3 offset) {
+    model->position.x += offset.x;
+    model->position.y += offset.y;
+    model->position.z += offset.z;
+    model->transform_dirty = 1;
+}
+
+void ch_model_set_position(ch_model* model, vector3 position) {
+    model->position = position;
+    model->transform_dirty = 1;
+}
+
+void ch_model_rotate(ch_model* model, vector3 angles) {
+    model->rotation.x += angles.x;
+    model->rotation.y += angles.y;
+    model->rotation.z += angles.z;
+    model->transform_dirty = 1;
+}
+
+void ch_model_set_rotation(ch_model* model, vector3 rotation) {
+    model->rotation = rotation;
+    model->transform_dirty = 1;
+}
+
+void ch_model_recalculate_transform(ch_model* model) {
+    if (!model->transform_dirty) return;
+
+    al_identity_transform(&model->transform);
+
+    // Apply scaling
+    al_scale_transform_3d(&model->transform, model->scale.x, model->scale.y, model->scale.z);
+
+    // Apply rotations (order: Z, Y, X)
+    al_rotate_transform_3d(&model->transform, 1, 0, 0, model->rotation.x);
+    al_rotate_transform_3d(&model->transform, 0, 1, 0, model->rotation.y);
+    al_rotate_transform_3d(&model->transform, 0, 0, 1, model->rotation.z);
+
+    // Apply translation
+    al_translate_transform_3d(&model->transform, model->position.x, model->position.y, model->position.z);
+
+    model->transform_dirty = 0;
 }

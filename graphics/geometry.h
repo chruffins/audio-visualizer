@@ -5,6 +5,7 @@
 #include<stdio.h>
 
 #include "obj_parser.h"
+#include "vector.h"
 
 /**
  * @file geometry.h
@@ -16,6 +17,12 @@
  * Struct representing a 3D model.
  */
 typedef struct ch_model ch_model;
+
+/**
+ * @brief Defines a vector type for ch_model.
+ */
+#include "../util/vector.h"
+DEF_VECTOR(ch_model)
 
 /**
  * @typedef CH_VERTEX
@@ -36,6 +43,11 @@ struct ch_model {
     unsigned int num_indices;                   /**< Number of indices */
     ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags;     /**< Buffer flags for primitives */
     ALLEGRO_PRIM_TYPE prim_type;                /**< Primitive type for rendering */
+    vector3 position;                           /**< Position of the model in 3D space */
+    vector3 rotation;                           /**< Rotation vector (optional) */
+    vector3 scale;                              /**< Scale vector (optional) */
+    ALLEGRO_TRANSFORM transform;                /**< Transformation matrix for the model */
+    int transform_dirty;                        /**< Flag indicating if the transform needs to be recalculated */
 };
 
 /**
@@ -96,3 +108,87 @@ void ch_model_init_cube(ch_model* model, ALLEGRO_BITMAP* texture, double lwh, do
  * @return Loaded ch_model
  */
 ch_model ch_model_load(char* obj_filename, ALLEGRO_PRIM_BUFFER_FLAGS buffer_flags);
+
+/**
+ * @brief Moves the model by the specified offsets.
+ * @param model Pointer to ch_model
+ * @param dx Offset in X
+ * @param dy Offset in Y
+ * @param dz Offset in Z
+ */
+void ch_model_move(ch_model* model, vector3 offset);
+
+/**
+ * @brief Sets the model's transformation matrix.
+ * @param model Pointer to ch_model
+ * @param position New position vector
+ */
+void ch_model_set_position(ch_model* model, vector3 position);
+
+/**
+ * @brief Rotates the model by the specified angles (in radians).
+ * @param model Pointer to ch_model
+ * @param d_pitch Rotation around X axis
+ * @param d_yaw Rotation around Y axis
+ * @param d_roll Rotation around Z axis
+ */
+void ch_model_rotate(ch_model* model, vector3 angles);
+
+/**
+ * @brief Sets the model's transformation matrix.
+ * @param model Pointer to ch_model
+ * @param rotation New rotation vector
+ */
+void ch_model_set_rotation(ch_model* model, vector3 rotation);
+
+/**
+ * @brief Recalculates the model's transformation matrix from its position and rotation.
+ * @param model Pointer to ch_model
+ */
+void ch_model_recalculate_transform(ch_model* model);
+
+/**
+ * @brief Initializes a ch_model_vec.
+ * @return Initialized ch_model_vec
+ */
+inline ch_model_vec ch_model_vec_init() {
+    ch_model_vec vec;
+    VECTOR_INIT(vec);
+    return vec;
+}
+
+/**
+ * @brief Returns a pointer to the model at the given index.
+ * @param vec Pointer to ch_model_vec
+ * @param index Index of the model
+ * @return Pointer to ch_model
+ */
+inline ch_model* ch_model_vec_at(ch_model_vec *vec, size_t index) {
+    return VECTOR_AT(*vec, index);
+}
+
+/**
+ * @brief Pushes a model onto the vector.
+ * @param vec Pointer to ch_model_vec
+ * @param model Model to add
+ */
+inline void ch_model_vec_push(ch_model_vec *vec, ch_model model) {
+    VECTOR_PUSH(ch_model, *vec, model);
+}
+
+/**
+ * @brief Reserves capacity for the vector.
+ * @param vec Pointer to ch_model_vec
+ * @param capacity Number of elements to reserve
+ */
+inline void ch_model_vec_reserve(ch_model_vec *vec, size_t capacity) {
+    VECTOR_RESERVE(ch_model, *vec, capacity);
+}
+
+/**
+ * @brief Frees memory used by the vector.
+ * @param vec Pointer to ch_model_vec
+ */
+inline void ch_model_vec_free(ch_model_vec *vec) {
+    VECTOR_FREE(*vec);
+}

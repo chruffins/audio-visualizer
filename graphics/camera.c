@@ -59,3 +59,30 @@ void camera_rotate_around_axis(camera *c, vector3 axis, double radians)
    c->x = vector3_norm(c->x);
    c->y = vector3_cross(c->z, c->x);
 }
+
+void camera_screen_point_to_ray(const camera* cam, double mouse_x, double mouse_y, double screen_width, double screen_height, ch_ray* out_ray) {
+    // Convert screen coordinates to normalized device coordinates (-1 to 1)
+    double ndc_x = (2.0 * mouse_x) / screen_width - 1.0;
+    double ndc_y = 1.0 - (2.0 * mouse_y) / screen_height; // y is usually inverted
+
+    // Calculate aspect ratio and FOV in radians
+    double aspect = screen_width / screen_height;
+    double fov_rad = cam->fov * (M_PI / 180.0);
+
+    // Calculate the size of the image plane at z = -1
+    double px = ndc_x * aspect * tan(fov_rad / 2.0);
+    double py = ndc_y * tan(fov_rad / 2.0);
+
+    // Ray direction in camera space
+    vector3 ray_dir = vector3_norm(
+      vector3_add(
+         vector3_add(
+            vector3_mul(cam->x, px),
+            vector3_mul(cam->y, py)
+         ),
+         vector3_mul(cam->z, -1.0)
+      )
+   );
+
+   ch_ray_init(out_ray, &cam->pos, &ray_dir);
+}

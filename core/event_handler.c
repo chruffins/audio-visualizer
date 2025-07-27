@@ -6,6 +6,7 @@
 #include "inputstate.h"
 #include "menu.h"
 #include "app_state.h"
+#include "../graphics/camera.h"
 
 void handle_display_resize(ALLEGRO_EVENT *event) {
     ch_app_state* app = get_app_state();
@@ -13,7 +14,7 @@ void handle_display_resize(ALLEGRO_EVENT *event) {
 }
 
 void handle_display_close(ALLEGRO_EVENT *event) {
-    ch_app_state* app = get_app_state();
+    //ch_app_state* app = get_app_state();
     // unfinished is a local variable in main loop, so this should be handled via a pointer or callback.
     // If you want to set a flag in app_state, add a member like 'bool unfinished;' to ch_app_state.
     // For now, leave a comment.
@@ -49,6 +50,12 @@ void handle_key_down(ALLEGRO_EVENT *event) {
     } else if (event->keyboard.keycode == ALLEGRO_KEY_P) {
         al_set_audio_stream_pan(app->stream, al_get_audio_stream_pan(app->stream) + 0.1 > 1 ? 1 : al_get_audio_stream_pan(app->stream) + 0.1);
         printf("new pan: %f\n", al_get_audio_stream_pan(app->stream));
+    } else if (event->keyboard.keycode == ALLEGRO_KEY_R) {
+        app->song = ch_song_vec_rand(&app->songs);
+
+        if (app->stream) al_destroy_audio_stream(app->stream);
+        app->stream = al_load_audio_stream(app->song->filename, 4, 4096);
+        al_attach_audio_stream_to_mixer(app->stream, app->mixer);
     }
 }
 
@@ -80,9 +87,6 @@ void handle_menu_click(ALLEGRO_EVENT *event) {
             // }
             break;
         case MENU_FILE_EXIT:
-            // unfinished is a local variable in main loop, so this should be handled via a pointer or callback.
-            // If you want to set a flag in app_state, add a member like 'bool unfinished;' to ch_app_state.
-            // For now, leave a comment.
             // app->unfinished = false;
             break;
         case DEBUG_MENU_LIST_ALBUMS:
@@ -99,7 +103,7 @@ void handle_menu_click(ALLEGRO_EVENT *event) {
             al_show_native_message_box(app->display, "About", "Audio Visualizer", "This is an audio visualizer application.", NULL, ALLEGRO_MESSAGEBOX_OK_CANCEL);
             break;
         default:
-            printf("Unhandled menu item: %d\n", event->user.data1);
+            printf("Unhandled menu item: %ld\n", event->user.data1);
             break;
     }
 }
@@ -108,21 +112,17 @@ void handle_mouse_button_down(ALLEGRO_EVENT *event) {
     ch_app_state* app = get_app_state();
     if (event->mouse.button == 1) {
         printf("mouse down @ %d %d!\n", event->mouse.x, event->mouse.y);
-        // mousedown is a local variable in main loop, so this should be handled via a pointer or callback.
-        // If you want to set a flag in app_state, add a member like 'bool mousedown;' to ch_app_state.
-        // For now, leave a comment.
-        // app->mousedown = true;
     }
     app->input.mouse_buttons[event->mouse.button] = 1;
+
+    ch_ray ray;
+    camera_screen_point_to_ray(&app->cam, event->mouse.x, event->mouse.y, app->width, app->height, &ray);
 }
 
 void handle_mouse_button_up(ALLEGRO_EVENT *event) {
     ch_app_state* app = get_app_state();
     if (event->mouse.button == 1) {
-        // mousedown is a local variable in main loop, so this should be handled via a pointer or callback.
-        // If you want to set a flag in app_state, add a member like 'bool mousedown;' to ch_app_state.
-        // For now, leave a comment.
-        // app->mousedown = false;
+        printf("mouse up @ %d %d!\n", event->mouse.x, event->mouse.y);
     }
     app->input.mouse_buttons[event->mouse.button] = 0;
 }

@@ -3,27 +3,22 @@
 #include <stdio.h>
 #include <math.h>
 
-static ch_app_state app_state = (ch_app_state){
+static ch_app_state app_state = (ch_app_state) {
     .filename = NULL,
     .width = 1920,
     .height = 1080,
     .display = NULL,
     .vb = NULL,
     .song = NULL,
-    .model = {0},
-    .info_cube = {0},
     .test_texture = NULL,
     .info_cube_texture = NULL,
     .triangles_n = 0,
-    .cam = {0},
     .particles = NULL,
     .particles_ptr = 0,
     .fps = 0.0,
     .frames_done = 0,
     .old_time = 0.0,
-    .identity_transform = {0},
     .def = NULL,
-    .input = {0},
     .db = NULL,
 };
 
@@ -40,6 +35,7 @@ void init_app_state() {
     al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_GTK_TOPLEVEL | ALLEGRO_PROGRAMMABLE_PIPELINE);
 
     app_state.vb = ch_vis_buffer_create();
+    app_state.models = ch_model_vec_init();
     app_state.particles = malloc(sizeof(particle) * 8192);
     al_identity_transform(&app_state.identity_transform);
 
@@ -58,6 +54,7 @@ void init_app_state() {
         exit(1);
     }
 
+    app_state.songs = get_songs(app_state.db);
     get_albums(app_state.db);
     get_artists(app_state.db);
     get_genres(app_state.db);

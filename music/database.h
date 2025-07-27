@@ -195,7 +195,7 @@ void get_album_from_stmt(sqlite3_stmt* stmt, ch_album* album);
  * @param stmt Pointer to sqlite3_stmt
  * @return Pointer to ch_song
  */
-ch_song* get_song_from_stmt(sqlite3_stmt* stmt);
+ch_song get_song_from_stmt(sqlite3_stmt* stmt);
 
 
 /* these set of functions are used to initialize the application by pulling all data from the database */

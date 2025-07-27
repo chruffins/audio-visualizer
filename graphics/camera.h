@@ -2,6 +2,7 @@
 #include<allegro5/allegro.h>
 
 #include "vector.h"
+#include "ray.h"
 
 /**
  * @struct camera
@@ -13,6 +14,7 @@ struct camera {
     vector3 y;     /**< Y-axis (up/down direction) */
     vector3 z;     /**< Z-axis (forward/backward direction) */
     double fov;    /**< Field of view in degrees */
+    ALLEGRO_TRANSFORM transform;    /**< Internal storage of the camera matrix */
 };
 
 /**
@@ -62,6 +64,23 @@ inline void build_and_use_camera_transform(camera* cam) {
         cam->pos.z - cam->z.z,
         cam->y.x, cam->y.y, cam->y.z);
     al_use_transform(&t);
+}
+
+/**
+ * @brief Builds the camera transform for rendering.
+ * @param cam Pointer to camera
+ */
+inline ALLEGRO_TRANSFORM update_camera_transform(camera* cam) {
+    ALLEGRO_TRANSFORM t;
+    al_build_camera_transform(&t, 
+        cam->pos.x, cam->pos.y, cam->pos.z,
+        cam->pos.x - cam->z.x, 
+        cam->pos.y - cam->z.y, 
+        cam->pos.z - cam->z.z,
+        cam->y.x, cam->y.y, cam->y.z);
+
+    cam->transform = t;
+    return t;
 }
 
 /**
@@ -119,3 +138,14 @@ void camera_move(camera* cam, double right, double up, double forward);
  * @param radians Angle in radians
  */
 void camera_rotate_around_axis(camera *c, vector3 axis, double radians);
+
+/**
+ * @brief Converts a 2D screen coordinate (mouse click) to a 3D ray in world space.
+ * @param cam Pointer to camera
+ * @param mouse_x Mouse X coordinate (screen space)
+ * @param mouse_y Mouse Y coordinate (screen space)
+ * @param screen_width Width of the screen in pixels
+ * @param screen_height Height of the screen in pixels
+ * @param out_ray Output: resulting ray in world space
+ */
+void camera_screen_point_to_ray(const camera* cam, double mouse_x, double mouse_y, double screen_width, double screen_height, ch_ray* out_ray);

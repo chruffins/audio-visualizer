@@ -19,31 +19,44 @@
 #include "inputstate.h"
 
 typedef struct {
+    // Window/display properties
     char* filename;
     const int width;
     const int height;
     ALLEGRO_DISPLAY* display;
-    ch_vis_buffer *vb;
-    ch_song* song;
-    ch_model model;
-    ch_model info_cube;
+
+    // Graphics/models/textures
     ALLEGRO_BITMAP* test_texture;
     ALLEGRO_BITMAP* info_cube_texture;
-    ALLEGRO_VERTEX triangles[3*1000];
-    int triangles_n;
-    camera cam;
-    particle* particles;
-    int particles_ptr;
-    double fps;
-    uint64_t frames_done;
-    double old_time;
     ALLEGRO_TRANSFORM identity_transform;
     ALLEGRO_FONT* def;
-    input_state input;
-    sqlite3* db;
+    ALLEGRO_VERTEX triangles[3*1000];
+    int triangles_n;
+    ch_vis_buffer *vb;
+    camera cam;
+
+    // Geometry/particles
+    ch_model_vec models;
+    particle* particles;
+    int particles_ptr;
+
+    // audio
+    ch_song* song;
     ALLEGRO_VOICE* voice;
     ALLEGRO_MIXER* mixer;
     ALLEGRO_AUDIO_STREAM* stream;
+
+    // music data in-memory
+    ch_song_vec songs;
+
+    // Timing/performance
+    double fps;
+    uint64_t frames_done;
+    double old_time;
+
+    // Input/database
+    input_state input;
+    sqlite3* db;
 } ch_app_state;
 
 void init_app_state();

@@ -255,7 +255,7 @@ int add_song(sqlite3 *db, const char *song_path, const char *title, int album_id
     sqlite3_bind_int(stmt, 3, album_id);
     sqlite3_bind_int(stmt, 4, track > 0 ? track : 0);
     sqlite3_bind_text(stmt, 5, comment, -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 6, duration > 0 ? track : 0);
+    sqlite3_bind_int(stmt, 6, duration > 0 ? duration : 0);
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
@@ -431,24 +431,18 @@ ch_album* get_album_by_id(sqlite3* db, int id) {
 
 }
 
-ch_song* get_song_from_stmt(sqlite3_stmt* stmt) {
+ch_song get_song_from_stmt(sqlite3_stmt* stmt) {
     // songs.id, songs.song_path, songs.title, songs.album_id, songs.track, songs.comment, songs.duration
-    ch_song* s = malloc(sizeof(ch_song));
-    if (!s) {
-        fprintf(stderr, "exited during get_song_from_stmt because of failed malloc\n");
-        exit(1);
-        //return NULL;
-    }
+    ch_song s = { 0 };
 
-    s->id = sqlite3_column_int(stmt, 0);
-    s->filename = strdup(sqlite3_column_text(stmt, 1));
-    
-    s->title = strdup(sqlite3_column_text(stmt, 2));
+    s.id = sqlite3_column_int(stmt, 0);
+    s.filename = strdup(sqlite3_column_text(stmt, 1));
+    s.title = strdup(sqlite3_column_text(stmt, 2));
     // need to do something about album id...........
-    s->album_id = sqlite3_column_int(stmt, 3);
-    s->track = sqlite3_column_int(stmt, 4);
-    s->comment = strdup(sqlite3_column_text(stmt, 5));
-    s->duration = sqlite3_column_int(stmt, 6);
+    s.album_id = sqlite3_column_int(stmt, 3);
+    s.track = sqlite3_column_int(stmt, 4);
+    s.comment = strdup(sqlite3_column_text(stmt, 5));
+    s.duration = sqlite3_column_int(stmt, 6);
 
     return s;
 }
@@ -495,7 +489,27 @@ end:
 }
 
 ch_song_vec get_songs(sqlite3* db) {
+    ch_song_vec vec;
+    const char* song_sql = "SELECT id, song_path, title, album_id, track, comment, duration FROM songs";
 
+    int num_songs = get_row_count(db, "songs");
+    sqlite3_stmt* stmt;
+
+    int rc = sqlite3_prepare_v2(db, song_sql, -1, &stmt, NULL);
+
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "failed to prepare get songs statement: %s\n", sqlite3_errmsg(db));
+        goto end;
+    }
+    // allocate the songs now
+    ch_song_vec_reserve(&vec, num_songs);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        ch_song_vec_push(&vec, get_song_from_stmt(stmt));
+    }
+end:
+    sqlite3_finalize(stmt);
+    return vec;
 }
 
 ch_album_vec get_albums(sqlite3 *db) {
@@ -508,7 +522,7 @@ ch_album_vec get_albums(sqlite3 *db) {
     int rc = sqlite3_prepare_v2(db, album_sql, -1, &stmt, NULL);
 
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "failed to prepare get artist by name statement: %s\n", sqlite3_errmsg(db));
+        fprintf(stderr, "failed to prepare get albums statement: %s\n", sqlite3_errmsg(db));
         goto end;
     }
 

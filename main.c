@@ -134,6 +134,8 @@ void draw_scene() {
     double pitch, yaw, roll;
     ch_app_state* app = get_app_state();
 
+    draw_song_status(app->display, app->info_cube_texture, app->def, app->song, 0, 0);
+
     // all of our 3d elements go here
     setup_3d_projection(&app->cam);
     al_clear_to_color(al_map_rgb(25, 25, 25));
@@ -141,11 +143,22 @@ void draw_scene() {
     al_set_render_state(ALLEGRO_DEPTH_TEST, 1);
     al_clear_depth_buffer(1);
 
-    build_and_use_camera_transform(&app->cam);
+    update_camera_transform(&app->cam);
+    
+    ALLEGRO_TRANSFORM combined;
+    for (int i = 0; i < app->models.size; i++) {
+        ch_model* model = ch_model_vec_at(&app->models, i);
 
+        if (model->transform_dirty) ch_model_recalculate_transform(model);
+
+        combined = model->transform;
+        al_compose_transform(&combined, &app->cam.transform);
+        al_use_transform(&combined);
+        ch_model_draw(model);
+    }
+
+    al_use_transform(&app->cam.transform);
     al_draw_prim(app->triangles, NULL, app->test_texture, 0, app->triangles_n, ALLEGRO_PRIM_TRIANGLE_LIST);
-    //ch_model_draw(&model);
-    ch_model_draw(&app->info_cube);
 
     // back to 2d we go
     al_use_transform(&app->identity_transform);
@@ -163,7 +176,6 @@ void draw_scene() {
     al_draw_textf(app->def, al_map_rgb(255, 0, 0), 0, lh * 2, 0, "pitch: %+4.0f, yaw: %+4.0f, roll: %+4.0f", pitch, yaw, roll);
     al_hold_bitmap_drawing(false);
     draw_frequency_bins(app->display, app->test_texture, app->vb);
-    draw_song_status(app->display, al_get_backbuffer(app->display), app->def, app->song, 0, 200);
 
     al_flip_display();
 }
@@ -211,12 +223,15 @@ void run_main_loop() {
     al_attach_mixer_to_voice(app->mixer, app->voice);
     al_reserve_samples(32);
 
-    app->stream = al_load_audio_stream(app->filename, 4, 4096);
-    if (!app->stream) {
-        printf("Failed to create stream...\n");
+    app->song = ch_song_vec_rand(&app->songs);
+    if (app->song) {
+        app->stream = al_load_audio_stream(app->song->filename, 4, 4096);
+        if (!app->stream) {
+            printf("Failed to create stream...\n");
+        }
+        al_attach_audio_stream_to_mixer(app->stream, app->mixer);
+        al_set_mixer_postprocess_callback(app->mixer, update_buffer, NULL);
     }
-    al_attach_audio_stream_to_mixer(app->stream, app->mixer);
-    al_set_mixer_postprocess_callback(app->mixer, update_buffer, NULL);
 
     bool redraw = false;
     bool unfinished = true;
@@ -232,7 +247,10 @@ void run_main_loop() {
     al_register_event_source(queue, al_get_display_event_source(app->display));
     al_register_event_source(queue, al_get_timer_event_source(timer));
     al_register_event_source(queue, al_get_default_menu_event_source());
-    al_register_event_source(queue, al_get_audio_stream_event_source(app->stream));
+
+    if (app->stream) {
+        al_register_event_source(queue, al_get_audio_stream_event_source(app->stream));
+    }
 
     al_start_timer(timer);
     al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP | ALLEGRO_NO_PRESERVE_TEXTURE | ALLEGRO_MIN_LINEAR | ALLEGRO_MAG_LINEAR);
@@ -242,8 +260,14 @@ void run_main_loop() {
     al_clear_to_color(al_map_rgb(255,255,255));
     al_set_target_backbuffer(app->display);
 
-    app->model = ch_model_load("assets/teapot.obj", ALLEGRO_PRIM_BUFFER_STATIC);
-    ch_model_init_cube(&app->info_cube, app->info_cube_texture, 5, 0, 15, 0);
+    ch_model info_cube;
+    //ch_model_move(&info_cube, vector3_new(0, 10, 0));
+    info_cube.texture = app->info_cube_texture;
+    ch_model_init_cube(&info_cube, app->info_cube_texture, 5, 0, 10, 0);
+    ch_model_rotate(&info_cube, vector3_new(0, PI / 4., 0));
+
+    ch_model_vec_push(&app->models, ch_model_load("assets/teapot.obj", ALLEGRO_PRIM_BUFFER_STATIC));
+    ch_model_vec_push(&app->models, info_cube);
     //ch_model_init_cube(&model, 40, 0, 0, 0);
     
     // al_load_bitmap("assets/plank.jpeg");
@@ -311,29 +335,7 @@ void run_main_loop() {
             redraw = true;
             break;
         case ALLEGRO_EVENT_MENU_CLICK:
-            /*
-            if (event.user.data1 == MENU_FILE_EXIT) {
-                unfinished = false;
-            } else if (event.user.data1 == MENU_FILE_OPEN) {
-                filepath = choose_audio_file();
-                if (filepath) {
-                    fp = fopen("recent.txt", "w");
-                    if (fp) {
-                        fprintf(fp, "%s", filepath);
-                        fclose(fp);
-                    }
-                    al_destroy_audio_stream(app->stream);
-                    app->stream = al_load_audio_stream(filepath, 4, 4096);
-                    if (app->stream) {
-                        // song = ch_song_load(filepath);
-                        al_register_event_source(queue, al_get_audio_stream_event_source(app->stream));
-                        al_attach_audio_stream_to_mixer(app->stream, app->mixer);
-                        //song = ch_song_create(filepath);
-                        //ch_song_print(song);
-                    }
-                    free(filepath);
-                }
-            } else if (event.user.data1 == MENU_FILE_FOLDER) {
+            if (event.user.data1 == MENU_FILE_FOLDER) {
                 filepath = choose_album_folder();
                 printf("user picked folder %s\n", filepath);
                 if (filepath) {
@@ -342,7 +344,6 @@ void run_main_loop() {
                     free(filepath);
                 }
             }
-            */
             handle_menu_click(&event);
             break;
         case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:

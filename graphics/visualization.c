@@ -1,5 +1,15 @@
 #include "visualization.h"
 
+static const char* safe_str(const char* str) {
+    if (str == NULL) {
+        return "(null)";
+    } else if (strcmp(str, "") == 0) {
+        return "(blank)";
+    } else {
+        return str;
+    }
+}
+
 void ch_vis_buffer_add_samples(ch_vis_buffer* restrict vb, const float* restrict samples) {
     size_t pos = vb->write_pos;
     
@@ -116,7 +126,10 @@ void draw_song_status(ALLEGRO_DISPLAY* restrict display,
     al_hold_bitmap_drawing(true);
 
     al_draw_text(font, al_map_rgb(0, 0, 0), x + 5, y + (lh * 0), ALLEGRO_ALIGN_LEFT, "Currently Playing");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), x + 5, y + (lh * 1), ALLEGRO_ALIGN_LEFT, "Title: %s", song->title);
+    al_draw_textf(font, al_map_rgb(0, 0, 0), x + 5, y + (lh * 1), ALLEGRO_ALIGN_LEFT, "Title: %s", safe_str(song->title));
+    al_draw_textf(font, al_map_rgb(0, 0, 0), x + 5, y + (lh * 2), ALLEGRO_ALIGN_LEFT, "Duration: %d", song->duration);
+    al_draw_textf(font, al_map_rgb(0, 0, 0), x + 5, y + (lh * 3), ALLEGRO_ALIGN_LEFT, "Comment: %s", safe_str(song->comment));
+    al_draw_textf(font, al_map_rgb(0, 0, 0), x + 5, y + (lh * 4), ALLEGRO_ALIGN_LEFT, "Track: %d", song->track);
 
     al_hold_bitmap_drawing(false);
     al_set_target_backbuffer(display);
