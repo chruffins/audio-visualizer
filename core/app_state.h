@@ -15,6 +15,7 @@
 #include "../music/database.h"
 #include "../music/audio_parser.h"
 #include "../music/play_queue.h"
+#include "../graphics/skybox.h"
 
 #include "inputstate.h"
 
@@ -36,6 +37,7 @@ typedef struct {
     camera cam;
 
     // Geometry/particles
+    ch_skybox skybox;
     ch_model_vec models;
     particle* particles;
     int particles_ptr;

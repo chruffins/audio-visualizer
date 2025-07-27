@@ -67,8 +67,6 @@ void ch_model_free(ch_model* model) {
 }
 
 void ch_model_init_cube(ch_model* model, ALLEGRO_BITMAP* texture, double lwh, double x, double y, double z) {
-    if (!texture) texture = al_load_bitmap("assets/texture1.png");
-
     int cube_indices[] = {
         0, 1, 2, 2, 3, 0,   // Front face
         4, 5, 6, 6, 7, 4,   // Back face
@@ -117,6 +115,8 @@ void ch_model_init_cube(ch_model* model, ALLEGRO_BITMAP* texture, double lwh, do
     };
 
     ALLEGRO_VERTEX* vertices = malloc(sizeof(ALLEGRO_VERTEX)*24);
+    int txt_width = texture ? al_get_bitmap_width(texture) : 1;
+    int txt_height = texture ? al_get_bitmap_height(texture) : 1;
 
     int* indices = malloc(sizeof(int)*36);
     for (int i = 0; i < 36; i++) {
@@ -129,8 +129,8 @@ void ch_model_init_cube(ch_model* model, ALLEGRO_BITMAP* texture, double lwh, do
         vertices[i].x = (vertices[i].x / 2);
         vertices[i].y = (vertices[i].y / 2);
         vertices[i].z = (vertices[i].z / 2);
-        vertices[i].u *= al_get_bitmap_width(texture);
-        vertices[i].v *= al_get_bitmap_height(texture);
+        vertices[i].u *= txt_width;
+        vertices[i].v *= txt_height;
     }
 
     ch_model_init(model, vertices, indices, 24, 36, texture, ALLEGRO_PRIM_BUFFER_DYNAMIC, ALLEGRO_PRIM_TRIANGLE_LIST);

@@ -144,8 +144,12 @@ void draw_scene() {
     al_clear_depth_buffer(1);
 
     update_camera_transform(&app->cam);
+
+    ALLEGRO_TRANSFORM combined = app->skybox.box.transform;
+    al_compose_transform(&combined, &app->cam.transform);
+    al_use_transform(&combined);
+    ch_skybox_draw(&app->skybox);
     
-    ALLEGRO_TRANSFORM combined;
     for (int i = 0; i < app->models.size; i++) {
         ch_model* model = ch_model_vec_at(&app->models, i);
 
@@ -207,6 +211,8 @@ void add_checkerboard(void)
 void run_main_loop() {
     ch_app_state* app = get_app_state();
     app->display = al_create_display(app->width, app->height);
+
+    app->skybox = ch_skybox_load("assets/1.png", "assets/2.png", "assets/3.png", "assets/4.png", "assets/5.png", "assets/6.png");
 
     char* filepath;
 
